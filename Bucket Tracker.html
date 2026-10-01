@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bucket Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f5f1;--card:#fff;--ink:#1c2a25;--mute:#6b7a73;--line:#dfe5df;--accent:#2f6f5e;--accent-ink:#fff;--hi:#c2410c;--md:#a16207;--lo:#4b6b8a;--neg:#b42318;--pos:#15803d;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121915;--card:#1b2620;--ink:#e8efe9;--mute:#93a39a;--line:#2b3a32;--accent:#5fb89f;--accent-ink:#0f1c17;--hi:#fb923c;--md:#facc15;--lo:#7fb0dc;--neg:#f87171;--pos:#4ade80}}
+:root[data-theme="dark"]{--bg:#121915;--card:#1b2620;--ink:#e8efe9;--mute:#93a39a;--line:#2b3a32;--accent:#5fb89f;--accent-ink:#0f1c17;--hi:#fb923c;--md:#facc15;--lo:#7fb0dc;--neg:#f87171;--pos:#4ade80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 Figtree,system-ui,sans-serif}
+.app{max-width:600px;margin:0 auto;padding:18px 14px 90px}
+h1{font:700 26px/1.1 "Bricolage Grotesque",Figtree,sans-serif;margin:4px 0 2px}
+.sub{color:var(--mute);margin:0 0 14px;font-size:14px}
+h2{font:600 16px/1.2 Figtree;margin:18px 0 8px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;min-height:40px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,select{font:inherit;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-height:40px}
+
+.buckets{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px}
+.bchip{flex:none;display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:1.5px solid var(--line);background:var(--card);color:var(--mute);font-weight:500;white-space:nowrap}
+.bchip .dot{width:9px;height:9px;border-radius:50%}
+.bchip.on{border-color:var(--ink);color:var(--ink);background:var(--card)}
+.newb{flex:none;width:40px;border-radius:50%;border:1.5px dashed var(--mute);background:transparent;color:var(--mute);font-size:20px;line-height:1}
+.newb-form{display:flex;gap:8px;margin:10px 0;align-items:center}
+.swatches{display:flex;gap:6px}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid transparent;min-height:26px;padding:0}
+.sw.on{border-color:var(--ink)}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.card .lbl{font-size:12px;color:var(--mute);margin:0 0 4px}
+.card .num{font:700 20px "Bricolage Grotesque",Figtree;margin:0}
+.num.neg{color:var(--neg)}.num.pos{color:var(--pos)}
+.bar{height:7px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--accent)}
+
+.tabs{display:flex;gap:6px;margin:14px 0 10px}
+.tabs button{flex:1;background:transparent;color:var(--mute);border:1px solid var(--line);font-weight:500;font-size:14px}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.add{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.add input[type=text]{flex:1;min-width:120px}
+.add input[type=number],.add input[type=date],.add select{width:110px}
+.go{background:var(--accent);color:var(--accent-ink);padding:0 16px;font-weight:600}
+
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+li{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--p);border-radius:12px;padding:9px 8px 9px 12px}
+li.done .t{text-decoration:line-through;color:var(--mute)}
+.chk{width:26px;height:26px;flex:none;border-radius:8px;border:2px solid var(--mute);background:transparent;min-height:26px;color:var(--accent-ink);font-weight:700;padding:0}
+.done .chk{background:var(--accent);border-color:var(--accent)}
+.t{flex:1;min-width:0;word-break:break-word;font-size:15px}
+.due{display:block;font-size:12px;color:var(--mute)}
+.due.late{color:var(--hi);font-weight:600}
+.amt{font-weight:700;font-size:15px}
+.amt.neg{color:var(--neg)}.amt.pos{color:var(--pos)}
+.del{background:transparent;color:var(--mute);width:36px;font-size:19px;flex:none}
+.empty{text-align:center;color:var(--mute);padding:28px 12px;border:1px dashed var(--line);border-radius:12px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useEffect}=React, h=React.createElement;
+const KEY="bucket-tracker-v1";
+const COLORS=["#2f6f5e","#c2410c","#a16207","#4b6b8a","#7c3aed","#be185d"];
+const PCOL={high:"var(--hi)",medium:"var(--md)",low:"var(--lo)"}, RANK={high:0,medium:1,low:2};
+const today=()=>new Date().toISOString().slice(0,10);
+const money=n=>(n<0?"-":"")+"₹"+Math.abs(n).toLocaleString("en-IN",{maximumFractionDigits:2});
+const uid=()=>Date.now()+Math.random();
+
+const seed={
+  buckets:[{id:"b1",name:"General",color:COLORS[0],target:0,targetDate:""}],
+  tasks:[],
+  entries:[] // {id,bucketId,kind:'revenue'|'expense',text,amount,date}
+};
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY));
+    if(v&&v.buckets&&v.buckets.length){v.buckets=v.buckets.map(b=>({targetDate:"",...b}));return v}
+    return seed}catch(e){return seed}}
+function daysLeft(dateStr){if(!dateStr)return null;
+  const ms=new Date(dateStr+"T00:00:00")-new Date(today()+"T00:00:00");
+  return Math.round(ms/86400000)}
+
+function App(){
+  const [data,setData]=useState(load);
+  const [active,setActive]=useState(()=>load().buckets[0].id);
+  const [tab,setTab]=useState("tasks");
+  const [addingBucket,setAddingBucket]=useState(false);
+  const [bName,setBName]=useState(""),[bColor,setBColor]=useState(COLORS[0]);
+  useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}},[data]);
+
+  const bucket=data.buckets.find(b=>b.id===active)||data.buckets[0];
+  const tasks=data.tasks.filter(t=>t.bucketId===bucket.id);
+  const revenue=data.entries.filter(e=>e.bucketId===bucket.id&&e.kind==="revenue");
+  const expenses=data.entries.filter(e=>e.bucketId===bucket.id&&e.kind==="expense");
+  const revTotal=revenue.reduce((s,e)=>s+e.amount,0), expTotal=expenses.reduce((s,e)=>s+e.amount,0);
+  const net=revTotal-expTotal;
+  const pct=bucket.target>0?Math.min(100,Math.round(revTotal/bucket.target*100)):0;
+
+  const addBucket=()=>{const n=bName.trim();if(!n)return;
+    const id=uid();
+    setData({...data,buckets:[...data.buckets,{id,name:n,color:bColor,target:0}]});
+    setActive(id);setBName("");setBColor(COLORS[0]);setAddingBucket(false)};
+  const setTarget=val=>setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,target:+val||0}:b)});
+  const setTargetDate=val=>setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,targetDate:val}:b)});
+  const delBucket=()=>{if(data.buckets.length<2)return;
+    const rest=data.buckets.filter(b=>b.id!==bucket.id);
+    setData({buckets:rest,tasks:data.tasks.filter(t=>t.bucketId!==bucket.id),entries:data.entries.filter(e=>e.bucketId!==bucket.id)});
+    setActive(rest[0].id)};
+
+  const addTask=(text,pri,due)=>{if(!text.trim())return;
+    setData({...data,tasks:[{id:uid(),bucketId:bucket.id,text:text.trim(),pri,due,done:false},...data.tasks]})};
+  const toggleTask=id=>setData({...data,tasks:data.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)});
+  const delTask=id=>setData({...data,tasks:data.tasks.filter(t=>t.id!==id)});
+
+  const addEntry=(kind,text,amount,date)=>{const a=+amount;if(!text.trim()||!a)return;
+    setData({...data,entries:[{id:uid(),bucketId:bucket.id,kind,text:text.trim(),amount:Math.abs(a),date:date||today()},...data.entries]})};
+  const delEntry=id=>setData({...data,entries:data.entries.filter(e=>e.id!==id)});
+
+  return h("div",{className:"app"},
+    h("h1",null,"Bucket Tracker"),
+    h("p",{className:"sub"},"Tasks, revenue and expenses, grouped into buckets you define."),
+
+    h("div",{className:"buckets"},
+      data.buckets.map(b=>h("button",{key:b.id,className:"bchip"+(b.id===active?" on":""),onClick:()=>setActive(b.id)},
+        h("span",{className:"dot",style:{background:b.color}}),b.name)),
+      h("button",{className:"newb","aria-label":"New bucket",onClick:()=>setAddingBucket(!addingBucket)},"+")),
+
+    addingBucket&&h("div",{className:"newb-form"},
+      h("input",{type:"text",placeholder:"Bucket name",value:bName,onChange:e=>setBName(e.target.value),
+        onKeyDown:e=>e.key==="Enter"&&addBucket(),style:{flex:1}}),
+      h("div",{className:"swatches"},COLORS.map(c=>h("button",{key:c,className:"sw"+(c===bColor?" on":""),
+        style:{background:c},onClick:()=>setBColor(c),"aria-label":"Pick color "+c}))),
+      h("button",{className:"go",onClick:addBucket},"Create")),
+
+    h("div",{className:"cards"},
+      h("div",{className:"card"},h("p",{className:"lbl"},"Revenue vs target"),
+        h("p",{className:"num"},money(revTotal)+" / "+money(bucket.target)),
+        h("div",{className:"bar"},h("i",{style:{width:pct+"%"}})),
+        bucket.targetDate&&(()=>{const d=daysLeft(bucket.targetDate);
+          return h("p",{className:"due"+(d<0?" late":""),style:{marginTop:6}},
+            d<0?Math.abs(d)+" days past "+bucket.targetDate:d===0?"Due today":d+" days left · "+bucket.targetDate)})()),
+      h("div",{className:"card"},h("p",{className:"lbl"},"Net (revenue minus expenses)"),
+        h("p",{className:"num "+(net<0?"neg":net>0?"pos":"")},money(net)))),
+
+    h("div",{className:"tabs",role:"tablist"},
+      [["tasks","Tasks"],["revenue","Revenue"],["expenses","Expenses"],["settings","Settings"]].map(([k,l])=>
+        h("button",{key:k,role:"tab","aria-selected":tab===k,className:tab===k?"on":"",onClick:()=>setTab(k)},l))),
+
+    tab==="tasks"&&h(TaskPanel,{tasks,onAdd:addTask,onToggle:toggleTask,onDel:delTask}),
+    tab==="revenue"&&h(MoneyPanel,{kind:"revenue",items:revenue,onAdd:addEntry,onDel:delEntry}),
+    tab==="expenses"&&h(MoneyPanel,{kind:"expense",items:expenses,onAdd:addEntry,onDel:delEntry}),
+    tab==="settings"&&h(Settings,{bucket,onTarget:setTarget,onTargetDate:setTargetDate,onDelete:delBucket,canDelete:data.buckets.length>1})
+  );
+}
+
+function TaskPanel({tasks,onAdd,onToggle,onDel}){
+  const [text,setText]=useState(""),[pri,setPri]=useState("medium"),[due,setDue]=useState("");
+  const submit=()=>{onAdd(text,pri,due);setText("");setDue("")};
+  const sorted=[...tasks].sort((a,b)=>RANK[a.pri]-RANK[b.pri]||(a.due||"9").localeCompare(b.due||"9"));
+  return h(React.Fragment,null,
+    h("div",{className:"add"},
+      h("input",{type:"text",placeholder:"New task",value:text,onChange:e=>setText(e.target.value),
+        onKeyDown:e=>e.key==="Enter"&&submit()}),
+      h("select",{value:pri,"aria-label":"Priority",onChange:e=>setPri(e.target.value)},
+        ["high","medium","low"].map(p=>h("option",{key:p,value:p},p[0].toUpperCase()+p.slice(1)))),
+      h("input",{type:"date",value:due,"aria-label":"Due date",onChange:e=>setDue(e.target.value)}),
+      h("button",{className:"go",onClick:submit},"Add")),
+    sorted.length?h("ul",null,sorted.map(t=>h("li",{key:t.id,className:t.done?"done":"",style:{"--p":PCOL[t.pri]}},
+      h("button",{className:"chk",onClick:()=>onToggle(t.id),"aria-label":"Toggle done"},t.done?"✓":""),
+      h("span",{className:"t"},t.text,t.due&&h("span",{className:"due"+(!t.done&&t.due<today()?" late":"")},
+        (!t.done&&t.due<today()?"Overdue: ":"Due ")+t.due)),
+      h("button",{className:"del",onClick:()=>onDel(t.id),"aria-label":"Delete"},"×"))))
+    :h("div",{className:"empty"},"No tasks in this bucket yet."));
+}
+
+function MoneyPanel({kind,items,onAdd,onDel}){
+  const [text,setText]=useState(""),[amount,setAmount]=useState(""),[date,setDate]=useState(today());
+  const submit=()=>{onAdd(kind,text,amount,date);setText("");setAmount("")};
+  const total=items.reduce((s,e)=>s+e.amount,0);
+  return h(React.Fragment,null,
+    h("div",{className:"add"},
+      h("input",{type:"text",placeholder:kind==="revenue"?"Source (e.g. Client invoice)":"Expense (e.g. Ads)",
+        value:text,onChange:e=>setText(e.target.value)}),
+      h("input",{type:"number",placeholder:"Amount",min:"0",value:amount,onChange:e=>setAmount(e.target.value)}),
+      h("input",{type:"date",value:date,onChange:e=>setDate(e.target.value)}),
+      h("button",{className:"go",onClick:submit},"Add")),
+    items.length?h("ul",null,items.map(e=>h("li",{key:e.id,style:{"--p":kind==="revenue"?"var(--pos)":"var(--neg)"}},
+      h("span",{className:"t"},e.text,h("span",{className:"due"},e.date)),
+      h("span",{className:"amt "+(kind==="revenue"?"pos":"neg")},(kind==="revenue"?"+":"-")+money(e.amount)),
+      h("button",{className:"del",onClick:()=>onDel(e.id),"aria-label":"Delete"},"×"))))
+    :h("div",{className:"empty"},kind==="revenue"?"No revenue logged yet.":"No expenses logged yet."),
+    items.length>0&&h("p",{className:"sub",style:{marginTop:10}},"Total: "+money(total)));
+}
+
+function Settings({bucket,onTarget,onTargetDate,onDelete,canDelete}){
+  const [t,setT]=useState(bucket.target||"");
+  const [d,setD]=useState(bucket.targetDate||"");
+  useEffect(()=>{setT(bucket.target||"");setD(bucket.targetDate||"")},[bucket.id]);
+  return h("div",{className:"card"},
+    h("h2",{style:{marginTop:0}},"Revenue target for "+bucket.name),
+    h("div",{className:"add",style:{marginBottom:4}},
+      h("input",{type:"number",min:"0",value:t,placeholder:"e.g. 10000",
+        onChange:e=>setT(e.target.value),onBlur:()=>onTarget(t)}),
+      h("input",{type:"date",value:d,"aria-label":"Target date",
+        onChange:e=>{setD(e.target.value);onTargetDate(e.target.value)}}),
+      h("button",{className:"go",onClick:()=>{onTarget(t);onTargetDate(d)}},"Save")),
+    h("p",{className:"sub",style:{margin:"0 0 10px"}},"Set a target amount and an optional deadline to track days remaining."),
+    canDelete&&h("button",{onClick:onDelete,style:{background:"transparent",color:"var(--neg)",textDecoration:"underline",padding:0}},
+      "Delete this bucket"));
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script>
+</body>
+</html>
