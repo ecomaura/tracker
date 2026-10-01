@@ -75,7 +75,7 @@ const COLORS=["#2f6f5e","#c2410c","#a16207","#4b6b8a","#7c3aed","#be185d"];
 const PCOL={high:"var(--hi)",medium:"var(--md)",low:"var(--lo)"}, RANK={high:0,medium:1,low:2};
 const today=()=>new Date().toISOString().slice(0,10);
 const money=n=>(n<0?"-":"")+"₹"+Math.abs(n).toLocaleString("en-IN",{maximumFractionDigits:2});
-const uid=()=>Date.now()+Math.random();
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 
 const seed={
   buckets:[{id:"b1",name:"General",color:COLORS[0],target:0,targetDate:""}],
@@ -146,10 +146,12 @@ function App(){
 
   const addBucket=()=>{const n=bName.trim();if(!n)return;
     const id=uid();
-    setData({...data,buckets:[...data.buckets,{id,name:n,color:bColor,target:0}]});
+    setData({...data,buckets:[...data.buckets,{id,name:n,color:bColor,target:0,targetDate:""}]});
     setActive(id);setBName("");setBColor(COLORS[0]);setAddingBucket(false)};
   const setTarget=val=>setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,target:+val||0}:b)});
   const setTargetDate=val=>setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,targetDate:val}:b)});
+  const renameBucket=val=>{const n=val.trim();if(!n)return;
+    setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,name:n}:b)})};
   const delBucket=()=>{if(data.buckets.length<2)return;
     const rest=data.buckets.filter(b=>b.id!==bucket.id);
     setData({buckets:rest,tasks:data.tasks.filter(t=>t.bucketId!==bucket.id),entries:data.entries.filter(e=>e.bucketId!==bucket.id)});
@@ -203,7 +205,7 @@ function App(){
     tab==="tasks"&&h(TaskPanel,{tasks,onAdd:addTask,onToggle:toggleTask,onDel:delTask}),
     tab==="revenue"&&h(MoneyPanel,{kind:"revenue",items:revenue,onAdd:addEntry,onDel:delEntry}),
     tab==="expenses"&&h(MoneyPanel,{kind:"expense",items:expenses,onAdd:addEntry,onDel:delEntry}),
-    tab==="settings"&&h(Settings,{bucket,onTarget:setTarget,onTargetDate:setTargetDate,onDelete:delBucket,canDelete:data.buckets.length>1}),
+    tab==="settings"&&h(Settings,{bucket,onTarget:setTarget,onTargetDate:setTargetDate,onRename:renameBucket,onDelete:delBucket,canDelete:data.buckets.length>1}),
     tab==="sync"&&h(SyncSettings,{fbConfig,sync,onSave:cfg=>{try{localStorage.setItem(FB_KEY,JSON.stringify(cfg))}catch(e){}setFbConfig(cfg)},
       onDisconnect:()=>{try{localStorage.removeItem(FB_KEY)}catch(e){}setFbConfig(null)}})
   );
@@ -248,21 +250,35 @@ function MoneyPanel({kind,items,onAdd,onDel}){
     items.length>0&&h("p",{className:"sub",style:{marginTop:10}},"Total: "+money(total)));
 }
 
-function Settings({bucket,onTarget,onTargetDate,onDelete,canDelete}){
+function Settings({bucket,onTarget,onTargetDate,onRename,onDelete,canDelete}){
   const [t,setT]=useState(bucket.target||"");
   const [d,setD]=useState(bucket.targetDate||"");
-  useEffect(()=>{setT(bucket.target||"");setD(bucket.targetDate||"")},[bucket.id]);
-  return h("div",{className:"card"},
-    h("h2",{style:{marginTop:0}},"Revenue target for "+bucket.name),
-    h("div",{className:"add",style:{marginBottom:4}},
-      h("input",{type:"number",min:"0",value:t,placeholder:"e.g. 10000",
-        onChange:e=>setT(e.target.value),onBlur:()=>onTarget(t)}),
-      h("input",{type:"date",value:d,"aria-label":"Target date",
-        onChange:e=>{setD(e.target.value);onTargetDate(e.target.value)}}),
-      h("button",{className:"go",onClick:()=>{onTarget(t);onTargetDate(d)}},"Save")),
-    h("p",{className:"sub",style:{margin:"0 0 10px"}},"Set a target amount and an optional deadline to track days remaining."),
-    canDelete&&h("button",{onClick:onDelete,style:{background:"transparent",color:"var(--neg)",textDecoration:"underline",padding:0}},
-      "Delete this bucket"));
+  const [name,setName]=useState(bucket.name);
+  const [confirming,setConfirming]=useState(false);
+  useEffect(()=>{setT(bucket.target||"");setD(bucket.targetDate||"");setName(bucket.name);setConfirming(false)},[bucket.id]);
+  return h(React.Fragment,null,
+    h("div",{className:"card",style:{marginBottom:10}},
+      h("h2",{style:{marginTop:0}},"Bucket name"),
+      h("div",{className:"add"},
+        h("input",{type:"text",value:name,onChange:e=>setName(e.target.value),
+          onKeyDown:e=>e.key==="Enter"&&onRename(name)}),
+        h("button",{className:"go",onClick:()=>onRename(name)},"Rename"))),
+    h("div",{className:"card"},
+      h("h2",{style:{marginTop:0}},"Revenue target"),
+      h("div",{className:"add",style:{marginBottom:4}},
+        h("input",{type:"number",min:"0",value:t,placeholder:"e.g. 10000",
+          onChange:e=>setT(e.target.value),onBlur:()=>onTarget(t)}),
+        h("input",{type:"date",value:d,"aria-label":"Target date",
+          onChange:e=>{setD(e.target.value);onTargetDate(e.target.value)}}),
+        h("button",{className:"go",onClick:()=>{onTarget(t);onTargetDate(d)}},"Save")),
+      h("p",{className:"sub",style:{margin:"0 0 14px"}},"Set a target amount and an optional deadline to track days remaining."),
+      canDelete&&(confirming
+        ?h("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+            h("span",{style:{color:"var(--neg)",fontSize:14}},"Delete \""+bucket.name+"\" and everything in it?"),
+            h("button",{onClick:()=>onDelete(),style:{background:"var(--neg)",color:"#fff",padding:"0 14px"}},"Yes, delete"),
+            h("button",{onClick:()=>setConfirming(false),style:{background:"transparent",color:"var(--mute)",textDecoration:"underline",padding:0}},"Cancel"))
+        :h("button",{onClick:()=>setConfirming(true),style:{background:"transparent",color:"var(--neg)",textDecoration:"underline",padding:0}},
+            "Delete this bucket"))));
 }
 
 function SyncSettings({fbConfig,sync,onSave,onDisconnect}){
@@ -300,7 +316,21 @@ function SyncSettings({fbConfig,sync,onSave,onDisconnect}){
       " for quick testing, then tighten it (e.g. to a secret key check) once it's working, since test-mode rules are open to anyone with your databaseURL."));
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+class Boundary extends React.Component{
+  constructor(p){super(p);this.state={err:null}}
+  static getDerivedStateFromError(err){return{err}}
+  render(){
+    if(this.state.err)return h("div",{className:"app"},
+      h("h1",null,"Something went wrong"),
+      h("p",{className:"sub"},"The app hit an error and stopped to avoid showing a blank screen. Your saved data is untouched."),
+      h("div",{className:"card",style:{marginBottom:12}},
+        h("p",{className:"lbl"},"Details"),
+        h("p",{style:{fontFamily:"monospace",fontSize:13,whiteSpace:"pre-wrap"}},String(this.state.err&&this.state.err.message||this.state.err))),
+      h("button",{className:"go",onClick:()=>window.location.reload()},"Reload"));
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(h(Boundary,null,h(App)));
 </script>
 </body>
 </html>
