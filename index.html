@@ -97,6 +97,15 @@ function App(){
   const [tab,setTab]=useState("tasks");
   const [addingBucket,setAddingBucket]=useState(false);
   const [bName,setBName]=useState(""),[bColor,setBColor]=useState(COLORS[0]);
+  const [notifyOn,setNotifyOn]=useState(()=>{try{return localStorage.getItem("bucket-tracker-notify")==="1"}catch(e){return false}});
+  const enableNotify=()=>{
+    if(!("Notification" in window)){alert("Notifications aren't supported in this browser.");return}
+    Notification.requestPermission().then(perm=>{
+      if(perm==="granted"){setNotifyOn(true);try{localStorage.setItem("bucket-tracker-notify","1")}catch(e){}}
+      else alert("Notifications were blocked. Enable them for this site in your browser settings to turn this on.")
+    });
+  };
+  const disableNotify=()=>{setNotifyOn(false);try{localStorage.setItem("bucket-tracker-notify","0")}catch(e){}};
   const [fbConfig,setFbConfig]=useState(loadFb);
   const [sync,setSync]=useState(loadFb()?"connecting":"off"); // off | connecting | syncing | synced | error
   const fbRef=React.useRef(null), ready=React.useRef(false), skip=React.useRef(false), timer=React.useRef(null);
@@ -154,6 +163,24 @@ function App(){
   const net=revTotal-expTotal;
   const pct=bucket.target>0?Math.min(100,Math.round(revTotal/bucket.target*100)):0;
 
+  useEffect(()=>{
+    if(!notifyOn||!("Notification" in window)||Notification.permission!=="granted")return;
+    const lastKey="bucket-tracker-last-notify";
+    let last;try{last=localStorage.getItem(lastKey)}catch(e){last=null}
+    if(last===today())return;
+    const overdue=safeTasks.filter(t=>!t.done&&t.due&&t.due<today());
+    const dueToday=safeTasks.filter(t=>!t.done&&t.due===today());
+    const closing=safeBuckets.filter(b=>{if(!b.targetDate)return false;const d=daysLeft(b.targetDate);return d!==null&&d>=0&&d<=3});
+    const parts=[];
+    if(overdue.length)parts.push(overdue.length+" overdue task"+(overdue.length>1?"s":""));
+    if(dueToday.length)parts.push(dueToday.length+" task"+(dueToday.length>1?"s":"")+" due today");
+    if(closing.length)parts.push(closing.length+" bucket"+(closing.length>1?"s":"")+" nearing its revenue deadline");
+    if(parts.length){
+      try{new Notification("Bucket Tracker",{body:parts.join(" · ")})}catch(e){}
+      try{localStorage.setItem(lastKey,today())}catch(e){}
+    }
+  },[notifyOn,data]);
+
   const addBucket=()=>{const n=bName.trim();if(!n)return;
     const id=uid();
     setData({buckets:[...safeBuckets,{id,name:n,color:bColor,target:0,targetDate:""}],tasks:safeTasks,entries:safeEntries});
@@ -177,14 +204,19 @@ function App(){
   const delEntry=id=>setData({buckets:safeBuckets,tasks:safeTasks,entries:safeEntries.filter(e=>e.id!==id)});
 
   return h("div",{className:"app"},
-    h("h1",null,"Bucket Tracker"),
+    h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+      h("h1",null,"Bucket Tracker"),
+      h("button",{onClick:notifyOn?disableNotify:enableNotify,"aria-label":notifyOn?"Turn off notifications":"Turn on notifications",
+        style:{background:"transparent",color:notifyOn?"var(--accent)":"var(--mute)",fontSize:20,width:40,padding:0}},
+        notifyOn?"🔔":"🔕")),
     h("p",{className:"sub"},"Tasks, revenue and expenses, grouped into buckets you define.",
       h("span",{style:{marginLeft:8,color:sync==="error"?"var(--neg)":"var(--mute)"}},
         sync==="synced"?"· ☁ Synced across your devices":
         sync==="syncing"?"· ☁ Syncing…":
         sync==="connecting"?"· ☁ Connecting…":
         sync==="off"?"· 💾 Saved on this device only":
-        sync==="error"?"· ⚠ Sync error, saved locally":"")),
+        sync==="error"?"· ⚠ Sync error, saved locally":""),
+      notifyOn&&h("span",{style:{display:"block",fontSize:12,marginTop:2}},"Alerts only fire while this tab is open.")),
 
     h("div",{className:"buckets"},
       safeBuckets.map(b=>h("button",{key:b.id,className:"bchip"+(b.id===active?" on":""),onClick:()=>setActive(b.id)},
@@ -209,12 +241,13 @@ function App(){
         h("p",{className:"num "+(net<0?"neg":net>0?"pos":"")},money(net)))),
 
     h("div",{className:"tabs",role:"tablist"},
-      [["tasks","Tasks"],["revenue","Revenue"],["expenses","Expenses"],["settings","Settings"],["sync","Sync"]].map(([k,l])=>
+      [["tasks","Tasks"],["revenue","Revenue"],["expenses","Expenses"],["overview","Overview"],["settings","Settings"],["sync","Sync"]].map(([k,l])=>
         h("button",{key:k,role:"tab","aria-selected":tab===k,className:tab===k?"on":"",onClick:()=>setTab(k)},l))),
 
     tab==="tasks"&&h(TaskPanel,{tasks,onAdd:addTask,onToggle:toggleTask,onDel:delTask}),
     tab==="revenue"&&h(MoneyPanel,{kind:"revenue",items:revenue,onAdd:addEntry,onDel:delEntry}),
     tab==="expenses"&&h(MoneyPanel,{kind:"expense",items:expenses,onAdd:addEntry,onDel:delEntry}),
+    tab==="overview"&&h(OverviewPanel,{buckets:safeBuckets,entries:safeEntries}),
     tab==="settings"&&h(Settings,{bucket,onTarget:setTarget,onTargetDate:setTargetDate,onRename:renameBucket,onDelete:delBucket,canDelete:safeBuckets.length>1}),
     tab==="sync"&&h(SyncSettings,{fbConfig,sync,onSave:cfg=>{try{localStorage.setItem(FB_KEY,JSON.stringify(cfg))}catch(e){}setFbConfig(cfg)},
       onDisconnect:()=>{try{localStorage.removeItem(FB_KEY)}catch(e){}setFbConfig(null)}})
@@ -258,6 +291,32 @@ function MoneyPanel({kind,items,onAdd,onDel}){
       h("button",{className:"del",onClick:()=>onDel(e.id),"aria-label":"Delete"},"×"))))
     :h("div",{className:"empty"},kind==="revenue"?"No revenue logged yet.":"No expenses logged yet."),
     items.length>0&&h("p",{className:"sub",style:{marginTop:10}},"Total: "+money(total)));
+}
+
+function OverviewPanel({buckets,entries}){
+  const rows=buckets.map(b=>{
+    const rev=entries.filter(e=>e.bucketId===b.id&&e.kind==="revenue").reduce((s,e)=>s+e.amount,0);
+    const exp=entries.filter(e=>e.bucketId===b.id&&e.kind==="expense").reduce((s,e)=>s+e.amount,0);
+    return{...b,rev,exp,net:rev-exp};
+  });
+  const totalRev=rows.reduce((s,r)=>s+r.rev,0), totalExp=rows.reduce((s,r)=>s+r.exp,0), totalNet=totalRev-totalExp;
+  const max=Math.max(totalRev,totalExp,1);
+  return h(React.Fragment,null,
+    h("div",{className:"cards"},
+      h("div",{className:"card"},h("p",{className:"lbl"},"Total revenue"),h("p",{className:"num pos"},money(totalRev))),
+      h("div",{className:"card"},h("p",{className:"lbl"},"Total expenses"),h("p",{className:"num neg"},money(totalExp)))),
+    h("div",{className:"card",style:{marginBottom:16}},
+      h("p",{className:"lbl"},"Net across all buckets"),
+      h("p",{className:"num "+(totalNet<0?"neg":totalNet>0?"pos":"")},money(totalNet))),
+    h("h2",{style:{marginTop:0}},"By bucket"),
+    rows.length?h("ul",null,rows.map(r=>h("li",{key:r.id,style:{"--p":r.color,flexDirection:"column",alignItems:"stretch",gap:6}},
+      h("div",{style:{display:"flex",justifyContent:"space-between"}},
+        h("span",{style:{fontWeight:600}},r.name),
+        h("span",{className:"amt "+(r.net<0?"neg":"pos")},money(r.net))),
+      h("div",{style:{fontSize:12,color:"var(--mute)"}},"Revenue "+money(r.rev)+" · Expenses "+money(r.exp)),
+      h("div",{className:"bar"},h("i",{style:{width:(r.rev/max*100)+"%",background:"var(--pos)"}})),
+      h("div",{className:"bar"},h("i",{style:{width:(r.exp/max*100)+"%",background:"var(--neg)"}})))))
+    :h("div",{className:"empty"},"No buckets yet."));
 }
 
 function Settings({bucket,onTarget,onTargetDate,onRename,onDelete,canDelete}){
