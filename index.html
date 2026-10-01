@@ -269,11 +269,17 @@ function SyncSettings({fbConfig,sync,onSave,onDisconnect}){
   const [raw,setRaw]=useState(fbConfig?JSON.stringify(fbConfig,null,2):"");
   const [err,setErr]=useState("");
   const save=()=>{
-    try{
-      const cfg=JSON.parse(raw);
-      if(!cfg.databaseURL||!cfg.apiKey){setErr("That doesn't look like a full firebaseConfig object — it needs at least apiKey and databaseURL.");return}
-      setErr("");onSave(cfg);
-    }catch(e){setErr("Couldn't parse that as JSON. Paste the whole firebaseConfig object, including the curly braces.")}
+    let text=raw.trim().replace(/^\s*(const|let|var)\s+\w+\s*=\s*/,"").replace(/;\s*$/,"");
+    let cfg;
+    try{cfg=JSON.parse(text)}
+    catch(e1){
+      try{cfg=new Function("return ("+text+")")()}
+      catch(e2){setErr("Couldn't parse that. Paste the whole firebaseConfig object, including the curly braces.");return}
+    }
+    if(!cfg||typeof cfg!=="object"){setErr("That doesn't look like an object.");return}
+    if(!cfg.apiKey){setErr("Missing apiKey — paste the full firebaseConfig object.");return}
+    if(!cfg.databaseURL){setErr("Missing databaseURL. In Firebase Console, go to Build → Realtime Database → Create Database first — the URL only appears once that exists. Then copy the config again.");return}
+    setErr("");onSave(cfg);
   };
   return h("div",{className:"card"},
     h("h2",{style:{marginTop:0}},"Cross-device sync"),
