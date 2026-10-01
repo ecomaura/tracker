@@ -117,7 +117,14 @@ function App(){
       setSync("connecting");
       handler=snap=>{
         const val=snap.val();
-        if(val){skip.current=true;setData(val)}
+        if(val){
+          skip.current=true;
+          setData({
+            buckets:Array.isArray(val.buckets)&&val.buckets.length?val.buckets:seed.buckets,
+            tasks:Array.isArray(val.tasks)?val.tasks:[],
+            entries:Array.isArray(val.entries)?val.entries:[]
+          });
+        }
         ready.current=true;setSync("synced");
       };
       ref.on("value",handler,()=>setSync("error"));
@@ -136,35 +143,38 @@ function App(){
     },500);
   },[data]);
 
-  const bucket=data.buckets.find(b=>b.id===active)||data.buckets[0];
-  const tasks=data.tasks.filter(t=>t.bucketId===bucket.id);
-  const revenue=data.entries.filter(e=>e.bucketId===bucket.id&&e.kind==="revenue");
-  const expenses=data.entries.filter(e=>e.bucketId===bucket.id&&e.kind==="expense");
+  const safeBuckets=Array.isArray(data.buckets)&&data.buckets.length?data.buckets:seed.buckets;
+  const safeTasks=Array.isArray(data.tasks)?data.tasks:[];
+  const safeEntries=Array.isArray(data.entries)?data.entries:[];
+  const bucket=safeBuckets.find(b=>b.id===active)||safeBuckets[0];
+  const tasks=safeTasks.filter(t=>t.bucketId===bucket.id);
+  const revenue=safeEntries.filter(e=>e.bucketId===bucket.id&&e.kind==="revenue");
+  const expenses=safeEntries.filter(e=>e.bucketId===bucket.id&&e.kind==="expense");
   const revTotal=revenue.reduce((s,e)=>s+e.amount,0), expTotal=expenses.reduce((s,e)=>s+e.amount,0);
   const net=revTotal-expTotal;
   const pct=bucket.target>0?Math.min(100,Math.round(revTotal/bucket.target*100)):0;
 
   const addBucket=()=>{const n=bName.trim();if(!n)return;
     const id=uid();
-    setData({...data,buckets:[...data.buckets,{id,name:n,color:bColor,target:0,targetDate:""}]});
+    setData({buckets:[...safeBuckets,{id,name:n,color:bColor,target:0,targetDate:""}],tasks:safeTasks,entries:safeEntries});
     setActive(id);setBName("");setBColor(COLORS[0]);setAddingBucket(false)};
-  const setTarget=val=>setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,target:+val||0}:b)});
-  const setTargetDate=val=>setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,targetDate:val}:b)});
+  const setTarget=val=>setData({buckets:safeBuckets.map(b=>b.id===bucket.id?{...b,target:+val||0}:b),tasks:safeTasks,entries:safeEntries});
+  const setTargetDate=val=>setData({buckets:safeBuckets.map(b=>b.id===bucket.id?{...b,targetDate:val}:b),tasks:safeTasks,entries:safeEntries});
   const renameBucket=val=>{const n=val.trim();if(!n)return;
-    setData({...data,buckets:data.buckets.map(b=>b.id===bucket.id?{...b,name:n}:b)})};
-  const delBucket=()=>{if(data.buckets.length<2)return;
-    const rest=data.buckets.filter(b=>b.id!==bucket.id);
-    setData({buckets:rest,tasks:data.tasks.filter(t=>t.bucketId!==bucket.id),entries:data.entries.filter(e=>e.bucketId!==bucket.id)});
+    setData({buckets:safeBuckets.map(b=>b.id===bucket.id?{...b,name:n}:b),tasks:safeTasks,entries:safeEntries})};
+  const delBucket=()=>{if(safeBuckets.length<2)return;
+    const rest=safeBuckets.filter(b=>b.id!==bucket.id);
+    setData({buckets:rest,tasks:safeTasks.filter(t=>t.bucketId!==bucket.id),entries:safeEntries.filter(e=>e.bucketId!==bucket.id)});
     setActive(rest[0].id)};
 
   const addTask=(text,pri,due)=>{if(!text.trim())return;
-    setData({...data,tasks:[{id:uid(),bucketId:bucket.id,text:text.trim(),pri,due,done:false},...data.tasks]})};
-  const toggleTask=id=>setData({...data,tasks:data.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)});
-  const delTask=id=>setData({...data,tasks:data.tasks.filter(t=>t.id!==id)});
+    setData({buckets:safeBuckets,entries:safeEntries,tasks:[{id:uid(),bucketId:bucket.id,text:text.trim(),pri,due,done:false},...safeTasks]})};
+  const toggleTask=id=>setData({buckets:safeBuckets,entries:safeEntries,tasks:safeTasks.map(t=>t.id===id?{...t,done:!t.done}:t)});
+  const delTask=id=>setData({buckets:safeBuckets,entries:safeEntries,tasks:safeTasks.filter(t=>t.id!==id)});
 
   const addEntry=(kind,text,amount,date)=>{const a=+amount;if(!text.trim()||!a)return;
-    setData({...data,entries:[{id:uid(),bucketId:bucket.id,kind,text:text.trim(),amount:Math.abs(a),date:date||today()},...data.entries]})};
-  const delEntry=id=>setData({...data,entries:data.entries.filter(e=>e.id!==id)});
+    setData({buckets:safeBuckets,tasks:safeTasks,entries:[{id:uid(),bucketId:bucket.id,kind,text:text.trim(),amount:Math.abs(a),date:date||today()},...safeEntries]})};
+  const delEntry=id=>setData({buckets:safeBuckets,tasks:safeTasks,entries:safeEntries.filter(e=>e.id!==id)});
 
   return h("div",{className:"app"},
     h("h1",null,"Bucket Tracker"),
@@ -177,7 +187,7 @@ function App(){
         sync==="error"?"· ⚠ Sync error, saved locally":"")),
 
     h("div",{className:"buckets"},
-      data.buckets.map(b=>h("button",{key:b.id,className:"bchip"+(b.id===active?" on":""),onClick:()=>setActive(b.id)},
+      safeBuckets.map(b=>h("button",{key:b.id,className:"bchip"+(b.id===active?" on":""),onClick:()=>setActive(b.id)},
         h("span",{className:"dot",style:{background:b.color}}),b.name)),
       h("button",{className:"newb","aria-label":"New bucket",onClick:()=>setAddingBucket(!addingBucket)},"+")),
 
@@ -205,7 +215,7 @@ function App(){
     tab==="tasks"&&h(TaskPanel,{tasks,onAdd:addTask,onToggle:toggleTask,onDel:delTask}),
     tab==="revenue"&&h(MoneyPanel,{kind:"revenue",items:revenue,onAdd:addEntry,onDel:delEntry}),
     tab==="expenses"&&h(MoneyPanel,{kind:"expense",items:expenses,onAdd:addEntry,onDel:delEntry}),
-    tab==="settings"&&h(Settings,{bucket,onTarget:setTarget,onTargetDate:setTargetDate,onRename:renameBucket,onDelete:delBucket,canDelete:data.buckets.length>1}),
+    tab==="settings"&&h(Settings,{bucket,onTarget:setTarget,onTargetDate:setTargetDate,onRename:renameBucket,onDelete:delBucket,canDelete:safeBuckets.length>1}),
     tab==="sync"&&h(SyncSettings,{fbConfig,sync,onSave:cfg=>{try{localStorage.setItem(FB_KEY,JSON.stringify(cfg))}catch(e){}setFbConfig(cfg)},
       onDisconnect:()=>{try{localStorage.removeItem(FB_KEY)}catch(e){}setFbConfig(null)}})
   );
