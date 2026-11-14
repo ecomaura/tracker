@@ -46,6 +46,7 @@ nav div{display:flex;width:100%;max-width:560px}
 nav button{flex:1;background:transparent;color:var(--mute);border-radius:0;min-height:54px;font-size:14px}
 nav button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
 .empty{text-align:center;color:var(--mute);padding:26px 10px;border:1px dashed var(--line);border-radius:12px;margin:10px 0}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:12px;overflow-x:auto;margin:6px 0}
 details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 .wk{overflow-x:auto}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s}}
@@ -54,6 +55,8 @@ details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 <body>
 <div id="app"></div>
 <nav><div id="nav"></div></nav>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 var KEY='agency-tracker-v2',STAGES=['Lead','Requirement discussion','Demo','Advance paid','Delivered','Lost'],PAY=['Advance paid','Delivered'];
 var uid=function(){return Math.random().toString(36).slice(2,9)};
@@ -66,7 +69,21 @@ function seed(){return{price:2999,target:15,log:[],clients:[]}}
 var S,tab='home';
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.log||!S.clients)S=seed();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}push()}
+var FB='agency-tracker-fb',fbc=null,ref=null,syncState='off',ready=false,wt=null;
+try{fbc=JSON.parse(localStorage.getItem(FB))}catch(e){fbc=null}
+var syncLabel=function(){return{off:'Sync off',connecting:'Syncing',synced:'Synced',error:'Sync error'}[syncState]};
+function setSync(s){syncState=s;var e=document.getElementById('syncchip');if(e)e.textContent=syncLabel()}
+var norm=function(o){return JSON.stringify(o,function(k,v){if(v&&typeof v==='object'&&!Array.isArray(v)){return Object.keys(v).sort().reduce(function(a,q){a[q]=v[q];return a},{})}return v})};
+function parseCfg(t){var m=String(t).match(/\{[\s\S]*\}/);if(!m)return null;var j=m[0];try{return JSON.parse(j)}catch(e){}
+try{j=j.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g,'$1"$2":').replace(/'/g,'"').replace(/,\s*\}/g,'}');return JSON.parse(j)}catch(e){return null}}
+function connect(){ready=false;ref=null;if(!fbc||!fbc.config||!fbc.key||!window.firebase){setSync('off');return}
+try{var app=firebase.apps.length?firebase.app():firebase.initializeApp(fbc.config);ref=firebase.database(app).ref('agencyTracker/'+fbc.key);setSync('connecting');
+ref.on('value',function(snap){var val=snap.val();
+if(val){var n={price:+val.price||2999,target:+val.target||15,log:val.log||[],clients:val.clients||[]};
+if(norm(n)!==norm(S)){try{if(!ready&&(S.log.length||S.clients.length))localStorage.setItem(KEY+'-before-sync',JSON.stringify(S))}catch(e){}S=n;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render()}
+ready=true;setSync('synced')}else{ready=true;push()}},function(){setSync('error')})}catch(e){setSync('error')}}
+function push(){if(!ref||!ready)return;clearTimeout(wt);wt=setTimeout(function(){setSync('connecting');ref.set(S).then(function(){setSync('synced')}).catch(function(){setSync('error')})},400)}
 var sum=function(a,k){return a.reduce(function(t,x){return t+(Number(x[k])||0)},0)};
 function calc(){var c={};c.spend=sum(S.log,'spend');c.leads=sum(S.log,'leads');c.demos=sum(S.log,'demos');c.revenue=sum(S.log,'revenue');c.costs=sum(S.log,'costs');
 c.paying=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1});
@@ -79,14 +96,19 @@ function monday(d){var t=new Date(d+'T00:00:00Z'),k=(t.getUTCDay()+6)%7;t.setUTC
 function addDays(d,n){var t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
 var st=function(l,v){return '<div class="st"><span>'+l+'</span><b>'+v+'</b></div>'};
 function home(){var c=calc(),ok=c.rate>=c.goal,mx=Math.max(c.rate,c.goal)*1.4||1;
-return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend, from your sheet</p>'+
+return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="syncchip" class="chip">'+syncLabel()+'</span></p>'+
 '<div class="card hero"><span class="mute">Profit after ad spend and costs</span><div class="big '+(c.profit>=0?'pos':'neg')+'">'+inr(c.profit)+'</div><span class="mute">'+inr(c.revenue)+' collected, '+inr(c.spend)+' on ads, '+inr(c.costs)+' on domains. Before your delivery time.</span></div>'+
 '<div class="card"><div class="row"><b>Close rate '+pc(c.rate)+'</b><span class="chip '+(ok?'ok':'no')+'">'+(ok?'On target':'Below target')+'</span></div>'+
 '<div class="bar"><i style="width:'+Math.min(100,c.rate/mx*100)+'%"></i><u style="left:'+Math.min(99,c.goal/mx*100)+'%"></u></div>'+
 '<span class="mute">'+c.n+' paying of '+c.leads+' leads. Line marks your goal of 1 in '+S.target+' ('+pc(c.goal)+'). Break-even is '+pc(c.be)+'.</span></div>'+
 '<div class="grid">'+st('Leads',c.leads)+st('Cost per lead',inr(c.cpl))+st('Paying clients',c.n)+st('Cost per paying client',inr(c.cppc))+st('Return on ad spend',c.roas.toFixed(2)+'x')+st('Balance still to collect',inr(c.owed))+st('Demos sent',c.demos)+st('Demo-stage leads',c.demo)+st('In discussion',c.req)+st('Care plan uptake',pc(c.uptake))+'</div>'+
 '<details><summary>Settings and backup</summary><div class="card"><div class="two"><div><label>Package price</label><input id="price" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Goal: 1 paying client in every</label><input id="tgt" type="number" inputmode="numeric" value="'+S.target+'"></div></div>'+
-'<button class="ghost full" data-a="settings">Save settings</button><button class="ghost full" data-a="export">Show backup text</button><textarea id="bk" rows="4" placeholder="Paste backup text here, then tap Restore"></textarea><button class="ghost full" data-a="import">Restore from backup text</button><button class="ghost full" data-a="reset" id="rs">Clear all data</button></div></details>'}
+'<button class="ghost full" data-a="settings">Save settings</button><button class="ghost full" data-a="export">Show backup text</button><textarea id="bk" rows="4" placeholder="Paste backup text here, then tap Restore"></textarea><button class="ghost full" data-a="import">Restore from backup text</button><button class="ghost full" data-a="reset" id="rs">Clear all data</button></div></details>'+
+'<details><summary>Sync across devices</summary><div class="card"><p class="mute" style="margin-top:0">Uses your own free Firebase Realtime Database. Use the same config and sync key on every device. The newest change wins.</p>'+
+'<label>Firebase config (paste the firebaseConfig object)</label><textarea id="fbcfg" rows="5" placeholder="{ apiKey: ..., databaseURL: ..., projectId: ... }"></textarea>'+
+'<label>Sync key (long and private, acts as your password)</label><input id="fbkey" type="text" autocomplete="off" value="'+esc(fbc&&fbc.key||'')+'"><button class="ghost full" data-a="syncgen">Make a random key</button>'+
+'<button class="pri full" data-a="syncon">Connect and sync</button><button class="ghost full" data-a="syncoff">Turn sync off</button><p id="syncmsg" class="mute"></p>'+
+'<p class="mute">In Firebase, open Realtime Database, then Rules, and use these so only people who know your key can reach your data:</p><pre>{\n  "rules": {\n    "agencyTracker": {\n      "$key": { ".read": true, ".write": true }\n    }\n  }\n}</pre></div></details>'}
 function logTab(){var rows=S.log.slice().sort(function(a,b){return a.date<b.date?1:-1});
 return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and money received</p>'+
 '<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Money received (\u20b9)</label><input id="lr" type="number" inputmode="decimal"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div>'+
@@ -117,11 +139,17 @@ else if(a==='delcl'){S.clients=S.clients.filter(function(x){return x.id!==id})}
 else if(a==='settings'){S.price=+v('price')||S.price;S.target=Math.max(1,+v('tgt')||S.target)}
 else if(a==='export'){save();render();document.querySelector('details').open=true;document.getElementById('bk').value=JSON.stringify(S);return}
 else if(a==='import'){try{var o=JSON.parse(v('bk'));if(o&&o.log&&o.clients){S=o}}catch(x){return}}
+else if(a==='syncgen'){var u=new Uint8Array(18);crypto.getRandomValues(u);document.getElementById('fbkey').value=Array.prototype.map.call(u,function(x){return x.toString(36).padStart(2,'0')}).join('').slice(0,26);return}
+else if(a==='syncon'){var cf=parseCfg(v('fbcfg')),ky=v('fbkey').trim(),m=document.getElementById('syncmsg');
+if(!cf||!cf.apiKey||!cf.databaseURL){m.textContent='Paste the full firebaseConfig object, including apiKey and databaseURL.';return}
+if(ky.length<16||/[^A-Za-z0-9_-]/.test(ky)){m.textContent='Use a sync key of 16 or more letters and numbers, with no spaces or symbols.';return}
+fbc={config:cf,key:ky};try{localStorage.setItem(FB,JSON.stringify(fbc))}catch(x){}connect();render();return}
+else if(a==='syncoff'){if(ref)ref.off();ref=null;fbc=null;ready=false;try{localStorage.removeItem(FB)}catch(x){}setSync('off');render();return}
 else if(a==='reset'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Tap again to clear everything';return}S={price:2999,target:15,log:[],clients:[]}}
 save();render()});
 document.addEventListener('change',function(e){var c=e.target.dataset&&e.target.dataset.c;if(!c)return;var x=S.clients.filter(function(k){return k.id===e.target.dataset.id})[0];if(!x)return;
 x[c]=c==='care'?e.target.checked:(c==='price'||c==='paid')?(+e.target.value||0):e.target.value;save();render()});
-render();
+render();connect();
 </script>
 </body>
 </html>
