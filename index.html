@@ -85,7 +85,7 @@ if(norm(n)!==norm(S)){try{if(!ready&&(S.log.length||S.clients.length))localStora
 ready=true;setSync('synced')}else{ready=true;push()}},function(){setSync('error')})}catch(e){setSync('error')}}
 function push(){if(!ref||!ready)return;clearTimeout(wt);wt=setTimeout(function(){setSync('connecting');ref.set(S).then(function(){setSync('synced')}).catch(function(){setSync('error')})},400)}
 var sum=function(a,k){return a.reduce(function(t,x){return t+(Number(x[k])||0)},0)};
-function calc(){var c={};c.spend=sum(S.log,'spend');c.leads=sum(S.log,'leads');c.demos=sum(S.log,'demos');c.revenue=sum(S.log,'revenue');c.costs=sum(S.log,'costs');
+function calc(){var c={};c.spend=sum(S.log,'spend');c.leads=sum(S.log,'leads');c.demos=sum(S.log,'demos');c.revenue=sum(S.clients,'paid');c.costs=sum(S.log,'costs');
 c.paying=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1});
 c.n=c.paying.length;c.cpl=c.leads?c.spend/c.leads:0;c.rate=c.leads?c.n/c.leads:0;c.cppc=c.n?c.spend/c.n:0;
 c.profit=c.revenue-c.spend-c.costs;c.roas=c.spend?c.revenue/c.spend:0;c.be=S.price?c.cpl/S.price:0;c.goal=1/S.target;
@@ -110,11 +110,11 @@ return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="s
 '<button class="pri full" data-a="syncon">Connect and sync</button><button class="ghost full" data-a="syncoff">Turn sync off</button><p id="syncmsg" class="mute"></p>'+
 '<p class="mute">In Firebase, open Realtime Database, then Rules, and use these so only people who know your key can reach your data:</p><pre>{\n  "rules": {\n    "agencyTracker": {\n      "$key": { ".read": true, ".write": true }\n    }\n  }\n}</pre></div></details>'}
 function logTab(){var rows=S.log.slice().sort(function(a,b){return a.date<b.date?1:-1});
-return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and money received</p>'+
-'<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Money received (\u20b9)</label><input id="lr" type="number" inputmode="decimal"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div>'+
-(rows.length?rows.map(function(r){return '<div class="card"><div class="row"><b>'+fd(r.date)+'</b><button class="del" data-a="dellog" data-id="'+r.id+'" aria-label="Delete entry">Delete</button></div><div class="mute">'+(r.spend?'Ad spend '+inr(r.spend)+'. ':'')+(r.leads?r.leads+' leads. ':'')+(r.demos?r.demos+' demos. ':'')+(r.revenue?'Received '+inr(r.revenue)+'. ':'')+(r.costs?'Costs '+inr(r.costs)+'. ':'')+esc(r.note)+'</div></div>'}).join(''):'<div class="empty">No entries yet. Add today\u2019s spend and leads above.</div>')}
+return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and costs. Payments go on the Clients tab.</p>'+
+'<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div>'+
+(rows.length?rows.map(function(r){return '<div class="card"><div class="row"><b>'+fd(r.date)+'</b><button class="del" data-a="dellog" data-id="'+r.id+'" aria-label="Delete entry">Delete</button></div><div class="mute">'+(r.spend?'Ad spend '+inr(r.spend)+'. ':'')+(r.leads?r.leads+' leads. ':'')+(r.demos?r.demos+' demos. ':'')+(r.costs?'Costs '+inr(r.costs)+'. ':'')+esc(r.note)+'</div></div>'}).join(''):'<div class="empty">No entries yet. Add today\u2019s spend and leads above.</div>')}
 function clientsTab(){
-return '<h1>Clients</h1><p class="sub">Move each lead through the stages</p>'+
+return '<h1>Clients</h1><p class="sub">Move leads through the stages and record what each has paid. Paid amounts add up to your revenue.</p>'+
 '<div class="card"><label>Client or business</label><input id="cn" type="text"><div class="two"><div><label>Stage</label><select id="cs">'+STAGES.map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input id="cl" type="date" value="'+todayISO()+'"></div><div><label>Price (\u20b9)</label><input id="cp" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Paid so far (\u20b9)</label><input id="ca" type="number" inputmode="decimal"></div></div><button class="pri full" data-a="addcl">Add client</button></div>'+
 (S.clients.length?S.clients.map(function(x){var bal=PAY.indexOf(x.stage)>-1?Math.max(0,x.price-x.paid):0;
 return '<div class="card"><div class="row"><b>'+esc(x.name)+'</b><button class="del" data-a="delcl" data-id="'+x.id+'" aria-label="Delete client">Delete</button></div>'+
@@ -132,7 +132,7 @@ document.getElementById('nav').innerHTML=[['home','Summary'],['log','Log'],['cl'
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
 var b=e.target.closest('[data-a]');if(!b)return;var a=b.dataset.a,id=b.dataset.id;
-if(a==='addlog'){S.log.push({id:uid(),date:v('ld')||todayISO(),spend:+v('ls')||0,leads:+v('ll')||0,demos:+v('lm')||0,revenue:+v('lr')||0,costs:+v('lc')||0,note:v('ln')})}
+if(a==='addlog'){S.log.push({id:uid(),date:v('ld')||todayISO(),spend:+v('ls')||0,leads:+v('ll')||0,demos:+v('lm')||0,revenue:0,costs:+v('lc')||0,note:v('ln')})}
 else if(a==='dellog'){S.log=S.log.filter(function(r){return r.id!==id})}
 else if(a==='addcl'){if(!v('cn').trim())return;S.clients.push({id:uid(),name:v('cn').trim(),stage:v('cs'),price:+v('cp')||0,paid:+v('ca')||0,care:false,lead:v('cl')})}
 else if(a==='delcl'){S.clients=S.clients.filter(function(x){return x.id!==id})}
