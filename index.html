@@ -50,6 +50,9 @@ nav button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--ac
 .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
 .fu{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
 .card details{margin:10px 0 0}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0;-webkit-overflow-scrolling:touch}
+.fc{background:var(--card);color:var(--ink);border:1px solid var(--line);white-space:nowrap;min-height:36px;padding:0 12px;font-size:14px;flex:0 0 auto}
+.fc.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
 pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:12px;overflow-x:auto;margin:6px 0}
 .btn{display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:500;min-height:42px;border-radius:9px;border:1px solid var(--line);color:var(--ink)}
 details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
@@ -95,9 +98,9 @@ function mig(){var ch=false;S.clients.forEach(function(x){if(OFF[x.stage]&&x.tou
 var fc=function(id){return S.clients.filter(function(k){return k.id===id})[0]};
 var MSGS=['Hi {n}, did you get a chance to look at your website preview? It goes offline soon. Should I go ahead with this design, or change the colors?','Hi {n}, last reminder: your preview expires in a few hours. Pay the \u20b9999 advance to keep the price at \u20b92,999. Should I lock it for you?','Hi {n}, your preview was taken down but I still have it saved. Want me to restore it this week? Reply NO if it is not the right time.'];
 function MSG(x,i){i=i||0;if(x.stage!=='Demo'&&i===0)return 'Hi '+x.name+', thanks for your enquiry about a website. What does your business do, and when would you like to go live? I will send you a free preview.';return MSGS[Math.min(i,2)].replace('{n}',x.name)}
-function dueList(){var t=todayISO();return S.clients.filter(function(x){var o=OFF[x.stage];return o&&((x.next&&x.next<=t)||(x.touches>=o.length&&!x.next))}).sort(function(a,b){return(a.next||'')<(b.next||'')?-1:1})}
+function dueList(){var t=todayISO();return S.clients.filter(function(x){var o=OFF[x.stage];return o&&((x.next&&x.next<=t)||(x.touches>=o.length&&!x.next))}).sort(function(a,b){var ka=(a.next||'')+(a.time||S.fuTime||'11:30'),kb=(b.next||'')+(b.time||S.fuTime||'11:30');return ka<kb?-1:1})}
 function dueItem(x){var o=OFF[x.stage],fin=x.touches>=o.length&&!x.next,late=x.next?Math.round((new Date(todayISO())-new Date(x.next))/864e5):0,tel=(x.phone||'').replace(/\D/g,''),wa=tel.length===10?'91'+tel:tel,id=' data-id="'+x.id+'"';
-var info=fin?'No reply after all follow-ups':esc(x.stage)+', touch '+((x.touches||0)+1)+' of '+o.length+(late>0?' \u00b7 '+late+(late>1?' days':' day')+' late':'');
+var info=fin?'No reply after all follow-ups':esc(x.stage)+', touch '+((x.touches||0)+1)+' of '+o.length+(late>0?' \u00b7 '+late+(late>1?' days':' day')+' late':'')+' \u00b7 '+ft(x.time||S.fuTime||'11:30');
 var acts=fin?'<div class="three" style="grid-template-columns:1fr 1fr"><button class="ghost sm" data-a="frestart"'+id+'>Restart</button><button class="ghost sm" data-a="flost"'+id+'>Mark lost</button></div>':
 '<div class="three">'+(tel?'<a class="btn ghost sm" href="tel:+'+wa+'">Call</a><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/'+wa+'?text='+encodeURIComponent(MSG(x,x.touches))+'">WhatsApp</a>':'<span class="mute" style="grid-column:1/3;align-self:center">No phone number yet</span>')+'<button class="pri sm" data-a="fdone"'+id+'>Done</button></div>';
 return '<div class="fu"><div class="row"><b>'+esc(x.name)+'</b>'+(fin?'':'<button class="del" data-a="fsnooze"'+id+'>Tomorrow</button>')+'</div><div class="mute">'+info+'</div>'+acts+'</div>'}
@@ -124,7 +127,7 @@ return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="s
 '<div class="grid">'+st('Paying clients',c.n)+st('Cost per paying client',inr(c.cppc))+st('Leads',c.leads)+st('Balance to collect',inr(c.owed))+'</div>'+
 '<details><summary>More numbers</summary><div class="grid">'+st('Cost per lead',inr(c.cpl))+st('Return on ad spend',c.roas.toFixed(2)+'x')+st('Break-even close rate',pc(c.be))+st('Care plan uptake',pc(c.uptake))+st('Demos sent',c.demos)+st('Demo-stage leads',c.demo)+st('In discussion',c.req)+'</div></details>'+
 '<details><summary>Settings and backup</summary><div class="card"><div class="two"><div><label>Package price</label><input id="price" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Goal: 1 paying client in every</label><input id="tgt" type="number" inputmode="numeric" value="'+S.target+'"></div></div>'+
-'<button class="ghost full" data-a="settings">Save settings</button><button class="ghost full" data-a="export">Show backup text</button><textarea id="bk" rows="4" placeholder="Paste backup text here, then tap Restore"></textarea><button class="ghost full" data-a="import">Restore from backup text</button><button class="ghost full" data-a="reset" id="rs">Clear all data</button></div></details>'+
+'<label>Default follow-up time</label><input id="fut" type="time" value="'+esc(S.fuTime||'11:30')+'"><button class="ghost full" data-a="settings">Save settings</button><button class="ghost full" data-a="export">Show backup text</button><textarea id="bk" rows="4" placeholder="Paste backup text here, then tap Restore"></textarea><button class="ghost full" data-a="import">Restore from backup text</button><button class="ghost full" data-a="reset" id="rs">Clear all data</button></div></details>'+
 '<details><summary>Sync across devices</summary><div class="card"><p class="mute" style="margin-top:0">Uses your own free Firebase Realtime Database. Use the same config and sync key on every device. The newest change wins.</p>'+
 '<label>Firebase config (paste the firebaseConfig object)</label><textarea id="fbcfg" rows="5" placeholder="{ apiKey: ..., databaseURL: ..., projectId: ... }"></textarea>'+
 '<label>Sync key (long and private, acts as your password)</label><input id="fbkey" type="text" autocomplete="off" value="'+esc(fbc&&fbc.key||'')+'"><button class="ghost full" data-a="syncgen">Make a random key</button>'+
@@ -134,13 +137,26 @@ function logTab(){var rows=S.log.slice().sort(function(a,b){return a.date<b.date
 return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and costs. Payments go on the Clients tab.</p>'+
 '<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div>'+
 (rows.length?rows.map(function(r){return '<div class="card"><div class="row"><b>'+fd(r.date)+'</b><button class="del" data-a="dellog" data-id="'+r.id+'" aria-label="Delete entry">Delete</button></div><div class="mute">'+(r.spend?'Ad spend '+inr(r.spend)+'. ':'')+(r.leads?r.leads+' leads. ':'')+(r.demos?r.demos+' demos. ':'')+(r.costs?'Costs '+inr(r.costs)+'. ':'')+esc(r.note)+'</div></div>'}).join(''):'<div class="empty">No entries yet. Add today\u2019s spend and leads above.</div>')}
+var cf='all',cq='';
+function ft(t){var p=String(t||'11:30').split(':'),h=+p[0]||0,m=p[1]||'00',z=h>=12?'pm':'am';h=h%12||12;return h+':'+m+' '+z}
+function clientCard(x){var bal=PAY.indexOf(x.stage)>-1?Math.max(0,x.price-x.paid):0,o=OFF[x.stage],d=' data-id="'+x.id+'"';
+return '<div class="card"><div class="row"><b>'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
+'<div class="two"><div><label>Stage</label><select data-c="stage"'+d+'>'+STAGES.map(function(s){return '<option'+(s===x.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input type="date" data-c="lead"'+d+' value="'+esc(x.lead)+'"></div><div><label>Price (\u20b9)</label><input type="number" inputmode="decimal" data-c="price"'+d+' value="'+x.price+'"></div><div><label>Paid so far (\u20b9)</label><input type="number" inputmode="decimal" data-c="paid"'+d+' value="'+x.paid+'"></div></div>'+
+'<label>Phone</label><input type="tel" inputmode="tel" data-c="phone"'+d+' value="'+esc(x.phone)+'">'+
+(o?'<div class="two"><div><label>Next follow-up</label><input type="date" data-c="next"'+d+' value="'+esc(x.next)+'"></div><div><label>Follow-up time</label><input type="time" data-c="time"'+d+' value="'+esc(x.time||S.fuTime||'11:30')+'"></div></div>':'')+
+'<div class="row" style="margin-top:10px"><label style="margin:0"><input type="checkbox" style="width:auto;min-height:0" data-c="care"'+d+(x.care?' checked':'')+'> On a care plan</label><span class="mute">'+(bal?'Balance '+inr(bal):'')+'</span></div></div>'}
+function filterBar(){var c={};S.clients.forEach(function(x){c[x.stage]=(c[x.stage]||0)+1});
+var o=[['all','All',S.clients.length],['due','Due now',dueList().length]].concat(STAGES.map(function(s){return[s,s==='Requirement discussion'?'Discussion':s,c[s]||0]}));
+return '<div class="chips">'+o.map(function(k){return '<button class="fc'+(cf===k[0]?' on':'')+'" data-a="cfilter" data-v="'+esc(k[0])+'">'+esc(k[1])+' '+k[2]+'</button>'}).join('')+'</div><input id="cq" type="search" placeholder="Search by name or phone" value="'+esc(cq)+'" style="margin-top:8px">'}
+function clientList(){var q=cq.trim().toLowerCase(),qd=q.replace(/\D/g,''),dl=dueList();
+var L=S.clients.filter(function(x){if(cf==='due'){if(dl.indexOf(x)<0)return false}else if(cf!=='all'&&x.stage!==cf)return false;
+return !q||x.name.toLowerCase().indexOf(q)>-1||(qd&&(x.phone||'').replace(/\D/g,'').indexOf(qd)>-1)});
+if(cf==='due')L=dl.filter(function(x){return L.indexOf(x)>-1});
+return L.length?L.map(clientCard).join(''):'<div class="empty">'+(S.clients.length?'No clients match this filter.':'No clients yet.')+'</div>'}
 function clientsTab(){
 return '<h1>Clients</h1><p class="sub">Move leads through the stages and record what each has paid. Paid amounts add up to your revenue.</p>'+
-'<div class="card"><label>Client or business</label><input id="cn" type="text"><label>Phone (optional)</label><input id="cph" type="tel" inputmode="tel"><div class="two"><div><label>Stage</label><select id="cs">'+STAGES.map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input id="cl" type="date" value="'+todayISO()+'"></div><div><label>Price (\u20b9)</label><input id="cp" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Paid so far (\u20b9)</label><input id="ca" type="number" inputmode="decimal"></div></div><button class="pri full" data-a="addcl">Add client</button></div>'+
-(S.clients.length?S.clients.map(function(x){var bal=PAY.indexOf(x.stage)>-1?Math.max(0,x.price-x.paid):0;
-return '<div class="card"><div class="row"><b>'+esc(x.name)+'</b><button class="del" data-a="delcl" data-id="'+x.id+'" aria-label="Delete client">Delete</button></div>'+
-'<div class="two"><div><label>Stage</label><select data-c="stage" data-id="'+x.id+'">'+STAGES.map(function(s){return '<option'+(s===x.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input type="date" data-c="lead" data-id="'+x.id+'" value="'+esc(x.lead)+'"></div><div><label>Price (\u20b9)</label><input type="number" inputmode="decimal" data-c="price" data-id="'+x.id+'" value="'+x.price+'"></div><div><label>Paid so far (\u20b9)</label><input type="number" inputmode="decimal" data-c="paid" data-id="'+x.id+'" value="'+x.paid+'"></div><div><label>Phone</label><input type="tel" inputmode="tel" data-c="phone" data-id="'+x.id+'" value="'+esc(x.phone)+'"></div><div><label>Next follow-up</label><input type="date" data-c="next" data-id="'+x.id+'" value="'+esc(x.next)+'"></div></div>'+
-'<div class="row" style="margin-top:10px"><label style="margin:0"><input type="checkbox" style="width:auto;min-height:0" data-c="care" data-id="'+x.id+'"'+(x.care?' checked':'')+'> On a care plan</label><span class="mute">'+(bal?'Balance '+inr(bal):'')+'</span></div></div>'}).join(''):'<div class="empty">No clients yet.</div>')}
+'<details><summary>Add a client</summary><div class="card"><label>Client or business</label><input id="cn" type="text"><label>Phone (optional)</label><input id="cph" type="tel" inputmode="tel"><div class="two"><div><label>Stage</label><select id="cs">'+STAGES.map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input id="cl" type="date" value="'+todayISO()+'"></div><div><label>Price (\u20b9)</label><input id="cp" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Paid so far (\u20b9)</label><input id="ca" type="number" inputmode="decimal"></div></div><button class="pri full" data-a="addcl">Add client</button></div></details>'+
+filterBar()+'<div id="cllist">'+clientList()+'</div>'}
 function weeks(){var d={};S.log.forEach(function(r){d[monday(r.date)]=1});S.clients.forEach(function(x){if(x.lead)d[monday(x.lead)]=1});
 var ws=Object.keys(d).sort(),t=todayISO(),nl=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&!x.lead}).length;
 return '<h1>Weekly batches</h1><p class="sub">Close rate by the week leads arrived. Weeks starting Monday.</p>'+
@@ -157,23 +173,25 @@ if(a==='addlog'){S.log.push({id:uid(),date:v('ld')||todayISO(),spend:+v('ls')||0
 else if(a==='dellog'){S.log=S.log.filter(function(r){return r.id!==id})}
 else if(a==='addcl'){if(!v('cn').trim())return;var nc={id:uid(),name:v('cn').trim(),stage:v('cs'),price:+v('cp')||0,paid:+v('ca')||0,care:false,lead:v('cl'),phone:v('cph').trim()};plan(nc,todayISO());S.clients.push(nc)}
 else if(a==='delcl'){S.clients=S.clients.filter(function(x){return x.id!==id})}
-else if(a==='settings'){S.price=+v('price')||S.price;S.target=Math.max(1,+v('tgt')||S.target)}
+else if(a==='settings'){S.price=+v('price')||S.price;S.target=Math.max(1,+v('tgt')||S.target);S.fuTime=v('fut')||S.fuTime||'11:30'}
 else if(a==='export'){save();render();document.querySelector('details').open=true;document.getElementById('bk').value=JSON.stringify(S);return}
 else if(a==='import'){try{var o=JSON.parse(v('bk'));if(o&&o.log&&o.clients){S=o}}catch(x){return}}
+else if(a==='cfilter'){cf=b.dataset.v;render();return}
 else if(a==='fdone'){var q=fc(id),o=OFF[q.stage];q.touches=(q.touches||0)+1;q.next=q.touches<o.length?addDays(q.base||todayISO(),o[q.touches]):'';if(q.next&&q.next<=todayISO())q.next=addDays(todayISO(),1)}
 else if(a==='fsnooze'){fc(id).next=addDays(todayISO(),1)}
 else if(a==='flost'){var y=fc(id);y.stage='Lost';y.next=''}
 else if(a==='frestart'){plan(fc(id),todayISO())}
 else if(a==='syncgen'){var u=new Uint8Array(18);crypto.getRandomValues(u);document.getElementById('fbkey').value=Array.prototype.map.call(u,function(x){return x.toString(36).padStart(2,'0')}).join('').slice(0,26);return}
-else if(a==='syncon'){var cf=parseCfg(v('fbcfg')),ky=v('fbkey').trim(),m=document.getElementById('syncmsg');
-if(!cf||!cf.apiKey||!cf.databaseURL){m.textContent='Paste the full firebaseConfig object, including apiKey and databaseURL.';return}
+else if(a==='syncon'){var fcfg=parseCfg(v('fbcfg')),ky=v('fbkey').trim(),m=document.getElementById('syncmsg');
+if(!fcfg||!fcfg.apiKey||!fcfg.databaseURL){m.textContent='Paste the full firebaseConfig object, including apiKey and databaseURL.';return}
 if(ky.length<16||/[^A-Za-z0-9_-]/.test(ky)){m.textContent='Use a sync key of 16 or more letters and numbers, with no spaces or symbols.';return}
-fbc={config:cf,key:ky};try{localStorage.setItem(FB,JSON.stringify(fbc))}catch(x){}connect();render();return}
+fbc={config:fcfg,key:ky};try{localStorage.setItem(FB,JSON.stringify(fbc))}catch(x){}connect();render();return}
 else if(a==='syncoff'){if(ref)ref.off();ref=null;fbc=null;ready=false;try{localStorage.removeItem(FB)}catch(x){}setSync('off');render();return}
 else if(a==='reset'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Tap again to clear everything';return}S={price:2999,target:15,log:[],clients:[]}}
 save();render()});
 document.addEventListener('change',function(e){var c=e.target.dataset&&e.target.dataset.c;if(!c)return;var x=S.clients.filter(function(k){return k.id===e.target.dataset.id})[0];if(!x)return;
 x[c]=c==='care'?e.target.checked:(c==='price'||c==='paid')?(+e.target.value||0):e.target.value;if(c==='stage')plan(x,todayISO());save();render()});
+document.addEventListener('input',function(e){if(e.target.id==='cq'){cq=e.target.value;var l=document.getElementById('cllist');if(l)l.innerHTML=clientList()}});
 mig();render();connect();
 </script>
 </body>
