@@ -1,0 +1,11 @@
+{
+  "appId": "com.ecomaura.tracker",
+  "appName": "Agency Tracker",
+  "webDir": "www",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_followup",
+      "iconColor": "#3B4CCA"
+    }
+  }
+}

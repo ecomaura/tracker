@@ -164,7 +164,7 @@ return '<h1>Weekly batches</h1><p class="sub">Close rate by the week leads arriv
 var n=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&x.lead&&x.lead>=w&&x.lead<=e}).length,mat=t>=addDays(e,14);
 return '<div class="card"><div class="row"><b>'+fd(w)+' to '+fd(e)+'</b><span class="chip '+(mat?'ok':'')+'">'+(mat?'Matured':'Still maturing')+'</span></div><div class="grid" style="margin-top:10px">'+st('Leads',L)+st('Paying clients',n)+st('Close rate',L?pc(n/L):'-')+st('Cost per paying client',n?inr(sp/n):'-')+'</div></div>'}).join(''):'<div class="empty">Add log entries to see weekly results.</div>')+
 (nl?'<p class="mute">'+nl+' paying client'+(nl>1?'s have':' has')+' no lead date yet, so they are not counted in any week. Add the dates on the Clients tab.</p>':'')}
-function render(){var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
+function render(){syncReminders();var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
 document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary'],['log','Log'],['cl','Clients'],['wk','Weeks']].map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
@@ -192,6 +192,22 @@ save();render()});
 document.addEventListener('change',function(e){var c=e.target.dataset&&e.target.dataset.c;if(!c)return;var x=S.clients.filter(function(k){return k.id===e.target.dataset.id})[0];if(!x)return;
 x[c]=c==='care'?e.target.checked:(c==='price'||c==='paid')?(+e.target.value||0):e.target.value;if(c==='stage')plan(x,todayISO());save();render()});
 document.addEventListener('input',function(e){if(e.target.id==='cq'){cq=e.target.value;var l=document.getElementById('cllist');if(l)l.innerHTML=clientList()}});
+
+/* ---- Android reminder notifications (active only inside the APK) ---- */
+var LN=(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())?Capacitor.Plugins.LocalNotifications:null,rtm=null;
+function syncReminders(){if(!LN)return;clearTimeout(rtm);rtm=setTimeout(doSync,700)}
+async function doSync(){try{
+var p=await LN.checkPermissions();if(p.display!=='granted'){p=await LN.requestPermissions();if(p.display!=='granted')return}
+try{await LN.createChannel({id:'followups',name:'Follow-up reminders',description:'Reminders to follow up with leads',importance:4,visibility:1,vibration:true})}catch(e){}
+var pend=await LN.getPending();if(pend.notifications.length)await LN.cancel({notifications:pend.notifications.map(function(n){return{id:n.id}})});
+var now=Date.now(),list=[],id=1;
+S.clients.forEach(function(x){var o=OFF[x.stage];if(!o||!x.next)return;
+var t=(x.time||S.fuTime||'11:30').split(':'),d=new Date(x.next+'T00:00:00');d.setHours(+t[0]||0,+t[1]||0,0,0);
+while(d.getTime()<=now)d.setDate(d.getDate()+1);
+for(var k=0;k<3;k++){var at=new Date(d.getTime());at.setDate(at.getDate()+k);
+list.push({id:id++,channelId:'followups',title:'Follow up: '+x.name,body:x.stage+', touch '+((x.touches||0)+1)+' of '+o.length+(x.phone?' \u00b7 '+x.phone:''),schedule:{at:at,allowWhileIdle:true},extra:{cid:x.id}})}});
+if(list.length)await LN.schedule({notifications:list})}catch(e){}}
+if(LN){try{LN.addListener('localNotificationActionPerformed',function(){tab='cl';cf='due';render()})}catch(e){}}
 mig();render();connect();
 </script>
 </body>
