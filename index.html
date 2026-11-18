@@ -46,6 +46,10 @@ nav div{display:flex;width:100%;max-width:560px}
 nav button{flex:1;background:transparent;color:var(--mute);border-radius:0;min-height:54px;font-size:14px}
 nav button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
 .empty{text-align:center;color:var(--mute);padding:26px 10px;border:1px dashed var(--line);border-radius:12px;margin:10px 0}
+.sm{min-height:38px;padding:0 10px;font-size:14px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.fu{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.card details{margin:10px 0 0}
 pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:12px;overflow-x:auto;margin:6px 0}
 .btn{display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:500;min-height:42px;border-radius:9px;border:1px solid var(--line);color:var(--ink)}
 details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
@@ -93,10 +97,13 @@ var MSGS=['Hi {n}, did you get a chance to look at your website preview? It goes
 function MSG(x,i){i=i||0;if(x.stage!=='Demo'&&i===0)return 'Hi '+x.name+', thanks for your enquiry about a website. What does your business do, and when would you like to go live? I will send you a free preview.';return MSGS[Math.min(i,2)].replace('{n}',x.name)}
 function dueList(){var t=todayISO();return S.clients.filter(function(x){var o=OFF[x.stage];return o&&((x.next&&x.next<=t)||(x.touches>=o.length&&!x.next))}).sort(function(a,b){return(a.next||'')<(b.next||'')?-1:1})}
 function dueItem(x){var o=OFF[x.stage],fin=x.touches>=o.length&&!x.next,late=x.next?Math.round((new Date(todayISO())-new Date(x.next))/864e5):0,tel=(x.phone||'').replace(/\D/g,''),wa=tel.length===10?'91'+tel:tel,id=' data-id="'+x.id+'"';
-return '<div class="card"><div class="row"><b>'+esc(x.name)+'</b><span class="chip no">'+(fin?'Plan finished':esc(x.stage)+', touch '+((x.touches||0)+1)+' of '+o.length)+'</span></div><div class="mute">'+(fin?'No reply after all follow-ups.':(late>0?late+' day'+(late>1?'s':'')+' overdue':'Due today'))+'</div>'+
-(fin?'<div class="two" style="margin-top:10px"><button class="ghost" data-a="frestart"'+id+'>Restart</button><button class="ghost" data-a="flost"'+id+'>Mark lost</button></div>':
-'<div class="two" style="margin-top:10px">'+(tel?'<a class="btn" href="tel:+'+wa+'">Call</a><a class="btn" target="_blank" rel="noopener" href="https://wa.me/'+wa+'?text='+encodeURIComponent(MSG(x,x.touches))+'">WhatsApp</a>':'<span class="mute" style="grid-column:1/3">Add a phone number on the Clients tab for one-tap call and WhatsApp.</span>')+'</div><div class="two" style="margin-top:10px"><button class="pri" data-a="fdone"'+id+'>Done, schedule next</button><button class="ghost" data-a="fsnooze"'+id+'>Tomorrow</button></div>')+'</div>'}
-function dueSection(){var d=dueList();return d.length?'<h2>Follow up today ('+d.length+')</h2>'+d.map(dueItem).join(''):'<div class="card"><b>No follow-ups due</b><div class="mute">New leads and demos are scheduled automatically.</div></div>'}
+var info=fin?'No reply after all follow-ups':esc(x.stage)+', touch '+((x.touches||0)+1)+' of '+o.length+(late>0?' \u00b7 '+late+(late>1?' days':' day')+' late':'');
+var acts=fin?'<div class="three" style="grid-template-columns:1fr 1fr"><button class="ghost sm" data-a="frestart"'+id+'>Restart</button><button class="ghost sm" data-a="flost"'+id+'>Mark lost</button></div>':
+'<div class="three">'+(tel?'<a class="btn ghost sm" href="tel:+'+wa+'">Call</a><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/'+wa+'?text='+encodeURIComponent(MSG(x,x.touches))+'">WhatsApp</a>':'<span class="mute" style="grid-column:1/3;align-self:center">No phone number yet</span>')+'<button class="pri sm" data-a="fdone"'+id+'>Done</button></div>';
+return '<div class="fu"><div class="row"><b>'+esc(x.name)+'</b>'+(fin?'':'<button class="del" data-a="fsnooze"'+id+'>Tomorrow</button>')+'</div><div class="mute">'+info+'</div>'+acts+'</div>'}
+function dueSection(){var d=dueList();if(!d.length)return '<div class="card"><div class="row"><b>Follow-ups</b><span class="chip ok">All clear</span></div></div>';
+var rest=d.slice(2);
+return '<div class="card"><div class="row"><b>Follow up today</b><span class="chip no">'+d.length+'</span></div>'+d.slice(0,2).map(dueItem).join('')+(rest.length?'<details><summary class="mute">Show '+rest.length+' more</summary>'+rest.map(dueItem).join('')+'</details>':'')+'</div>'}
 var sum=function(a,k){return a.reduce(function(t,x){return t+(Number(x[k])||0)},0)};
 function calc(){var c={};c.spend=sum(S.log,'spend');c.leads=sum(S.log,'leads');c.demos=sum(S.log,'demos');c.revenue=sum(S.clients,'paid');c.costs=sum(S.log,'costs');
 c.paying=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1});
@@ -109,12 +116,13 @@ function monday(d){var t=new Date(d+'T00:00:00Z'),k=(t.getUTCDay()+6)%7;t.setUTC
 function addDays(d,n){var t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
 var st=function(l,v){return '<div class="st"><span>'+l+'</span><b>'+v+'</b></div>'};
 function home(){var c=calc(),ok=c.rate>=c.goal,mx=Math.max(c.rate,c.goal)*1.4||1;
-return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="syncchip" class="chip">'+syncLabel()+'</span></p>'+dueSection()+
-'<div class="card hero"><span class="mute">Profit after ad spend and costs</span><div class="big '+(c.profit>=0?'pos':'neg')+'">'+inr(c.profit)+'</div><span class="mute">'+inr(c.revenue)+' collected, '+inr(c.spend)+' on ads, '+inr(c.costs)+' on domains. Before your delivery time.</span></div>'+
+return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="syncchip" class="chip">'+syncLabel()+'</span></p>'+
+'<div class="card hero"><span class="mute">Profit after ad spend and costs</span><div class="big '+(c.profit>=0?'pos':'neg')+'">'+inr(c.profit)+'</div><span class="mute">'+inr(c.revenue)+' collected, minus '+inr(c.spend+c.costs)+' of ad spend and costs</span></div>'+dueSection()+
 '<div class="card"><div class="row"><b>Close rate '+pc(c.rate)+'</b><span class="chip '+(ok?'ok':'no')+'">'+(ok?'On target':'Below target')+'</span></div>'+
 '<div class="bar"><i style="width:'+Math.min(100,c.rate/mx*100)+'%"></i><u style="left:'+Math.min(99,c.goal/mx*100)+'%"></u></div>'+
-'<span class="mute">'+c.n+' paying of '+c.leads+' leads. Line marks your goal of 1 in '+S.target+' ('+pc(c.goal)+'). Break-even is '+pc(c.be)+'.</span></div>'+
-'<div class="grid">'+st('Leads',c.leads)+st('Cost per lead',inr(c.cpl))+st('Paying clients',c.n)+st('Cost per paying client',inr(c.cppc))+st('Return on ad spend',c.roas.toFixed(2)+'x')+st('Balance still to collect',inr(c.owed))+st('Demos sent',c.demos)+st('Demo-stage leads',c.demo)+st('In discussion',c.req)+st('Care plan uptake',pc(c.uptake))+'</div>'+
+'<span class="mute">'+c.n+' of '+c.leads+' leads paid. Goal is 1 in '+S.target+' ('+pc(c.goal)+').</span></div>'+
+'<div class="grid">'+st('Paying clients',c.n)+st('Cost per paying client',inr(c.cppc))+st('Leads',c.leads)+st('Balance to collect',inr(c.owed))+'</div>'+
+'<details><summary>More numbers</summary><div class="grid">'+st('Cost per lead',inr(c.cpl))+st('Return on ad spend',c.roas.toFixed(2)+'x')+st('Break-even close rate',pc(c.be))+st('Care plan uptake',pc(c.uptake))+st('Demos sent',c.demos)+st('Demo-stage leads',c.demo)+st('In discussion',c.req)+'</div></details>'+
 '<details><summary>Settings and backup</summary><div class="card"><div class="two"><div><label>Package price</label><input id="price" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Goal: 1 paying client in every</label><input id="tgt" type="number" inputmode="numeric" value="'+S.target+'"></div></div>'+
 '<button class="ghost full" data-a="settings">Save settings</button><button class="ghost full" data-a="export">Show backup text</button><textarea id="bk" rows="4" placeholder="Paste backup text here, then tap Restore"></textarea><button class="ghost full" data-a="import">Restore from backup text</button><button class="ghost full" data-a="reset" id="rs">Clear all data</button></div></details>'+
 '<details><summary>Sync across devices</summary><div class="card"><p class="mute" style="margin-top:0">Uses your own free Firebase Realtime Database. Use the same config and sync key on every device. The newest change wins.</p>'+
