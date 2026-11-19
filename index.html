@@ -66,7 +66,7 @@ details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-var KEY='agency-tracker-v2',STAGES=['Lead','Requirement discussion','Demo','Advance paid','Delivered','Lost'],PAY=['Advance paid','Delivered'];
+var KEY='agency-tracker-v2',STAGES=['Lead','Requirement discussion','Demo','Demo delivered','Advance paid','Delivered','Lost'],PAY=['Advance paid','Delivered'];
 var uid=function(){return Math.random().toString(36).slice(2,9)};
 var todayISO=function(){return new Date().toLocaleDateString('en-CA')};
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
@@ -77,7 +77,24 @@ function seed(){return{price:2999,target:15,log:[],clients:[]}}
 var S,tab='home';
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.log||!S.clients)S=seed();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}push()}
+var NAT=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()),LN=NAT&&Capacitor.Plugins&&Capacitor.Plugins.LocalNotifications,REM='agency-tracker-rem';
+function remOn(){try{return localStorage.getItem(REM)==='1'}catch(e){return false}}
+async function schedule(){if(!LN||!remOn())return;
+try{var pend=await LN.getPending();if(pend.notifications.length)await LN.cancel({notifications:pend.notifications.map(function(n){return{id:n.id}})});
+var now=new Date(),items=[],i=1;
+S.clients.forEach(function(x){var o=OFF[x.stage];if(!o||!x.next)return;var t=x.time||S.fuTime||'11:30',p=t.split(':'),at=new Date(x.next+'T'+t+':00');
+if(!(at>now)){at=new Date(now.getFullYear(),now.getMonth(),now.getDate(),+p[0],+p[1]);if(!(at>now))at.setDate(at.getDate()+1)}
+items.push({id:i++,title:'Follow up: '+x.name,body:x.stage+', touch '+((x.touches||0)+1)+' of '+o.length+' at '+ft(t),schedule:{at:at,allowWhileIdle:true},channelId:'followups',extra:{cid:x.id}})});
+if(items.length)await LN.schedule({notifications:items})}catch(e){}}
+async function enableReminders(){if(!LN)return 'Phone reminders work only in the Android app.';
+try{var p=await LN.requestPermissions();if(p.display!=='granted')return 'Notifications are blocked. Allow them for this app in Android settings.';
+await LN.createChannel({id:'followups',name:'Follow-ups',description:'Lead follow-up reminders',importance:5,visibility:1,vibration:true});
+try{var ex=await LN.checkExactNotificationSetting();if(ex.exact_alarm!=='granted')await LN.changeExactNotificationSetting()}catch(e){}
+try{localStorage.setItem(REM,'1')}catch(e){}await schedule();return 'Reminders are on.'}catch(e){return 'Could not turn on reminders.'}}
+async function testReminder(){if(!LN)return 'Phone reminders work only in the Android app.';
+try{await LN.schedule({notifications:[{id:9999,title:'Test reminder',body:'Follow-up reminders are working.',schedule:{at:new Date(Date.now()+10000),allowWhileIdle:true},channelId:'followups'}]});return 'Test sent. Close the app and wait 10 seconds.'}catch(e){return 'Could not send a test. Turn on reminders first.'}}
+function initNative(){if(!LN)return;try{LN.addListener('localNotificationActionPerformed',function(){tab='home';render()})}catch(e){}schedule();document.addEventListener('visibilitychange',function(){if(!document.hidden)schedule()})}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}push();try{schedule()}catch(e){}}
 var FB='agency-tracker-fb',fbc=null,ref=null,syncState='off',ready=false,wt=null;
 try{fbc=JSON.parse(localStorage.getItem(FB))}catch(e){fbc=null}
 var syncLabel=function(){return{off:'Sync off',connecting:'Syncing',synced:'Synced',error:'Sync error'}[syncState]};
@@ -88,16 +105,20 @@ try{j=j.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g,'$1"$2":').replace(/'/g,'"').repl
 function connect(){ready=false;ref=null;if(!fbc||!fbc.config||!fbc.key||!window.firebase){setSync('off');return}
 try{var app=firebase.apps.length?firebase.app():firebase.initializeApp(fbc.config);ref=firebase.database(app).ref('agencyTracker/'+fbc.key);setSync('connecting');
 ref.on('value',function(snap){var val=snap.val();
-if(val){var n={price:+val.price||2999,target:+val.target||15,log:val.log||[],clients:val.clients||[]};
+if(val){var n={price:+val.price||2999,target:+val.target||15,log:val.log||[],clients:val.clients||[],fuTime:val.fuTime||'',dd:val.dd||0};
 if(norm(n)!==norm(S)){try{if(!ready&&(S.log.length||S.clients.length))localStorage.setItem(KEY+'-before-sync',JSON.stringify(S))}catch(e){}S=n;mig();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render()}
 ready=true;setSync('synced')}else{ready=true;push()}},function(){setSync('error')})}catch(e){setSync('error')}}
 function push(){if(!ref||!ready)return;clearTimeout(wt);wt=setTimeout(function(){setSync('connecting');ref.set(S).then(function(){setSync('synced')}).catch(function(){setSync('error')})},400)}
-var OFF={'Lead':[0,2,5],'Requirement discussion':[0,2,5],'Demo':[1,2,6]};
+var OFF={'Lead':[0,2,5],'Requirement discussion':[0,2,5],'Demo':[0,1],'Demo delivered':[1,2,6]};
 function plan(x,base){var o=OFF[x.stage];x.base=base;x.touches=0;x.next=o?addDays(base,o[0]):''}
-function mig(){var ch=false;S.clients.forEach(function(x){if(OFF[x.stage]&&x.touches===undefined){var t0=todayISO();plan(x,addDays(t0,-OFF[x.stage][0]));x.next=t0;ch=true}});if(ch)save();return ch}
+function mig(){var ch=false;if(!S.dd){S.clients.forEach(function(x){if(x.stage==='Demo'){x.stage='Demo delivered';ch=true}});S.dd=1;ch=true}S.clients.forEach(function(x){if(OFF[x.stage]&&x.touches===undefined){var t0=todayISO();plan(x,addDays(t0,-OFF[x.stage][0]));x.next=t0;ch=true}});if(ch)save();return ch}
 var fc=function(id){return S.clients.filter(function(k){return k.id===id})[0]};
 var MSGS=['Hi {n}, did you get a chance to look at your website preview? It goes offline soon. Should I go ahead with this design, or change the colors?','Hi {n}, last reminder: your preview expires in a few hours. Pay the \u20b9999 advance to keep the price at \u20b92,999. Should I lock it for you?','Hi {n}, your preview was taken down but I still have it saved. Want me to restore it this week? Reply NO if it is not the right time.'];
-function MSG(x,i){i=i||0;if(x.stage!=='Demo'&&i===0)return 'Hi '+x.name+', thanks for your enquiry about a website. What does your business do, and when would you like to go live? I will send you a free preview.';return MSGS[Math.min(i,2)].replace('{n}',x.name)}
+function MSG(x,i){i=i||0;var n=x.name,l=x.link||'[demo link]';
+if(x.stage==='Demo')return i===0?'Hi '+n+', your website preview is ready: '+l+' It stays live for 48 hours. Should I go ahead with this design, or change the colors?':MSGS[0].replace('{n}',n);
+if(x.stage==='Demo delivered')return MSGS[Math.min(i,2)].replace('{n}',n);
+if(i===0)return 'Hi '+n+', thanks for your enquiry about a website. What does your business do, and when would you like to go live? I will send you a free preview.';
+return MSGS[Math.min(i,2)].replace('{n}',n)}
 function dueList(){var t=todayISO();return S.clients.filter(function(x){var o=OFF[x.stage];return o&&((x.next&&x.next<=t)||(x.touches>=o.length&&!x.next))}).sort(function(a,b){var ka=(a.next||'')+(a.time||S.fuTime||'11:30'),kb=(b.next||'')+(b.time||S.fuTime||'11:30');return ka<kb?-1:1})}
 function dueItem(x){var o=OFF[x.stage],fin=x.touches>=o.length&&!x.next,late=x.next?Math.round((new Date(todayISO())-new Date(x.next))/864e5):0,tel=(x.phone||'').replace(/\D/g,''),wa=tel.length===10?'91'+tel:tel,id=' data-id="'+x.id+'"';
 var info=fin?'No reply after all follow-ups':esc(x.stage)+', touch '+((x.touches||0)+1)+' of '+o.length+(late>0?' \u00b7 '+late+(late>1?' days':' day')+' late':'')+' \u00b7 '+ft(x.time||S.fuTime||'11:30');
@@ -113,7 +134,7 @@ c.paying=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1});
 c.n=c.paying.length;c.cpl=c.leads?c.spend/c.leads:0;c.rate=c.leads?c.n/c.leads:0;c.cppc=c.n?c.spend/c.n:0;
 c.profit=c.revenue-c.spend-c.costs;c.roas=c.spend?c.revenue/c.spend:0;c.be=S.price?c.cpl/S.price:0;c.goal=1/S.target;
 c.owed=c.paying.reduce(function(t,x){return t+Math.max(0,(+x.price||0)-(+x.paid||0))},0);
-c.demo=S.clients.filter(function(x){return x.stage==='Demo'}).length;c.req=S.clients.filter(function(x){return x.stage==='Requirement discussion'}).length;
+c.demo=S.clients.filter(function(x){return x.stage==='Demo delivered'}).length;c.req=S.clients.filter(function(x){return x.stage==='Requirement discussion'}).length;
 c.care=c.paying.filter(function(x){return x.care}).length;c.uptake=c.n?c.care/c.n:0;return c}
 function monday(d){var t=new Date(d+'T00:00:00Z'),k=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-k);return t.toISOString().slice(0,10)}
 function addDays(d,n){var t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
@@ -125,9 +146,10 @@ return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="s
 '<div class="bar"><i style="width:'+Math.min(100,c.rate/mx*100)+'%"></i><u style="left:'+Math.min(99,c.goal/mx*100)+'%"></u></div>'+
 '<span class="mute">'+c.n+' of '+c.leads+' leads paid. Goal is 1 in '+S.target+' ('+pc(c.goal)+').</span></div>'+
 '<div class="grid">'+st('Paying clients',c.n)+st('Cost per paying client',inr(c.cppc))+st('Leads',c.leads)+st('Balance to collect',inr(c.owed))+'</div>'+
-'<details><summary>More numbers</summary><div class="grid">'+st('Cost per lead',inr(c.cpl))+st('Return on ad spend',c.roas.toFixed(2)+'x')+st('Break-even close rate',pc(c.be))+st('Care plan uptake',pc(c.uptake))+st('Demos sent',c.demos)+st('Demo-stage leads',c.demo)+st('In discussion',c.req)+'</div></details>'+
+'<details><summary>More numbers</summary><div class="grid">'+st('Cost per lead',inr(c.cpl))+st('Return on ad spend',c.roas.toFixed(2)+'x')+st('Break-even close rate',pc(c.be))+st('Care plan uptake',pc(c.uptake))+st('Demos sent',c.demos)+st('Demo delivered',c.demo)+st('In discussion',c.req)+'</div></details>'+
 '<details><summary>Settings and backup</summary><div class="card"><div class="two"><div><label>Package price</label><input id="price" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Goal: 1 paying client in every</label><input id="tgt" type="number" inputmode="numeric" value="'+S.target+'"></div></div>'+
 '<label>Default follow-up time</label><input id="fut" type="time" value="'+esc(S.fuTime||'11:30')+'"><button class="ghost full" data-a="settings">Save settings</button><button class="ghost full" data-a="export">Show backup text</button><textarea id="bk" rows="4" placeholder="Paste backup text here, then tap Restore"></textarea><button class="ghost full" data-a="import">Restore from backup text</button><button class="ghost full" data-a="reset" id="rs">Clear all data</button></div></details>'+
+'<details><summary>Phone reminders</summary><div class="card">'+(NAT?'<p class="mute" style="margin-top:0">Get a notification on your phone at each lead\u2019s follow-up time, even when the app is closed. '+(remOn()?'Reminders are on.':'Reminders are off.')+'</p><button class="pri full" data-a="remon">Turn on reminders</button><button class="ghost full" data-a="remtest">Send a test in 10 seconds</button><p id="remmsg" class="mute"></p><p class="mute">If reminders arrive late, set this app to No restrictions in your phone\u2019s battery settings and allow auto-start.</p>':'<p class="mute" style="margin:0">Install the Android app to get follow-up notifications on your phone.</p>')+'</div></details>'+
 '<details><summary>Sync across devices</summary><div class="card"><p class="mute" style="margin-top:0">Uses your own free Firebase Realtime Database. Use the same config and sync key on every device. The newest change wins.</p>'+
 '<label>Firebase config (paste the firebaseConfig object)</label><textarea id="fbcfg" rows="5" placeholder="{ apiKey: ..., databaseURL: ..., projectId: ... }"></textarea>'+
 '<label>Sync key (long and private, acts as your password)</label><input id="fbkey" type="text" autocomplete="off" value="'+esc(fbc&&fbc.key||'')+'"><button class="ghost full" data-a="syncgen">Make a random key</button>'+
@@ -164,7 +186,7 @@ return '<h1>Weekly batches</h1><p class="sub">Close rate by the week leads arriv
 var n=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&x.lead&&x.lead>=w&&x.lead<=e}).length,mat=t>=addDays(e,14);
 return '<div class="card"><div class="row"><b>'+fd(w)+' to '+fd(e)+'</b><span class="chip '+(mat?'ok':'')+'">'+(mat?'Matured':'Still maturing')+'</span></div><div class="grid" style="margin-top:10px">'+st('Leads',L)+st('Paying clients',n)+st('Close rate',L?pc(n/L):'-')+st('Cost per paying client',n?inr(sp/n):'-')+'</div></div>'}).join(''):'<div class="empty">Add log entries to see weekly results.</div>')+
 (nl?'<p class="mute">'+nl+' paying client'+(nl>1?'s have':' has')+' no lead date yet, so they are not counted in any week. Add the dates on the Clients tab.</p>':'')}
-function render(){syncReminders();var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
+function render(){var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
 document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary'],['log','Log'],['cl','Clients'],['wk','Weeks']].map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
@@ -176,6 +198,8 @@ else if(a==='delcl'){S.clients=S.clients.filter(function(x){return x.id!==id})}
 else if(a==='settings'){S.price=+v('price')||S.price;S.target=Math.max(1,+v('tgt')||S.target);S.fuTime=v('fut')||S.fuTime||'11:30'}
 else if(a==='export'){save();render();document.querySelector('details').open=true;document.getElementById('bk').value=JSON.stringify(S);return}
 else if(a==='import'){try{var o=JSON.parse(v('bk'));if(o&&o.log&&o.clients){S=o}}catch(x){return}}
+else if(a==='remon'){enableReminders().then(function(m){var e=document.getElementById('remmsg');if(e)e.textContent=m;if(m==='Reminders are on.')setTimeout(render,1200)});return}
+else if(a==='remtest'){testReminder().then(function(m){var e=document.getElementById('remmsg');if(e)e.textContent=m});return}
 else if(a==='cfilter'){cf=b.dataset.v;render();return}
 else if(a==='fdone'){var q=fc(id),o=OFF[q.stage];q.touches=(q.touches||0)+1;q.next=q.touches<o.length?addDays(q.base||todayISO(),o[q.touches]):'';if(q.next&&q.next<=todayISO())q.next=addDays(todayISO(),1)}
 else if(a==='fsnooze'){fc(id).next=addDays(todayISO(),1)}
@@ -192,23 +216,7 @@ save();render()});
 document.addEventListener('change',function(e){var c=e.target.dataset&&e.target.dataset.c;if(!c)return;var x=S.clients.filter(function(k){return k.id===e.target.dataset.id})[0];if(!x)return;
 x[c]=c==='care'?e.target.checked:(c==='price'||c==='paid')?(+e.target.value||0):e.target.value;if(c==='stage')plan(x,todayISO());save();render()});
 document.addEventListener('input',function(e){if(e.target.id==='cq'){cq=e.target.value;var l=document.getElementById('cllist');if(l)l.innerHTML=clientList()}});
-
-/* ---- Android reminder notifications (active only inside the APK) ---- */
-var LN=(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())?Capacitor.Plugins.LocalNotifications:null,rtm=null;
-function syncReminders(){if(!LN)return;clearTimeout(rtm);rtm=setTimeout(doSync,700)}
-async function doSync(){try{
-var p=await LN.checkPermissions();if(p.display!=='granted'){p=await LN.requestPermissions();if(p.display!=='granted')return}
-try{await LN.createChannel({id:'followups',name:'Follow-up reminders',description:'Reminders to follow up with leads',importance:4,visibility:1,vibration:true})}catch(e){}
-var pend=await LN.getPending();if(pend.notifications.length)await LN.cancel({notifications:pend.notifications.map(function(n){return{id:n.id}})});
-var now=Date.now(),list=[],id=1;
-S.clients.forEach(function(x){var o=OFF[x.stage];if(!o||!x.next)return;
-var t=(x.time||S.fuTime||'11:30').split(':'),d=new Date(x.next+'T00:00:00');d.setHours(+t[0]||0,+t[1]||0,0,0);
-while(d.getTime()<=now)d.setDate(d.getDate()+1);
-for(var k=0;k<3;k++){var at=new Date(d.getTime());at.setDate(at.getDate()+k);
-list.push({id:id++,channelId:'followups',title:'Follow up: '+x.name,body:x.stage+', touch '+((x.touches||0)+1)+' of '+o.length+(x.phone?' \u00b7 '+x.phone:''),schedule:{at:at,allowWhileIdle:true},extra:{cid:x.id}})}});
-if(list.length)await LN.schedule({notifications:list})}catch(e){}}
-if(LN){try{LN.addListener('localNotificationActionPerformed',function(){tab='cl';cf='due';render()})}catch(e){}}
-mig();render();connect();
+mig();render();connect();initNative();
 </script>
 </body>
 </html>
