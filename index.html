@@ -68,6 +68,8 @@ details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s}}
 
 /* ---- Tablet and desktop layout (phones and the Android app are unchanged) ---- */
+/* compact client headers only show on desktop */
+.chead{display:none}
 @media (min-width:600px) and (max-width:899px){
 body{max-width:720px}nav div{max-width:720px}
 .chips{flex-wrap:wrap;overflow:visible}
@@ -109,7 +111,20 @@ nav button.on{background:var(--accbg);box-shadow:inset 3px 0 0 var(--acc)}
 .logform{position:sticky;top:16px}
 /* Clients: search box and add form stay compact */
 .pg-cl>details{max-width:640px}
-.pg-cl .cards{gap:18px}
+.pg-cl .cards{grid-template-columns:minmax(0,1fr);gap:8px;max-width:820px;align-items:start}
+.pg-cl .cards .card.cc{padding:0;overflow:hidden}
+.cc .chead{display:flex;width:100%;align-items:center;gap:12px;background:transparent;color:var(--ink);border-radius:0;min-height:52px;padding:0 18px;text-align:left;font-weight:500}
+.cc .chead:hover{background:var(--accbg);filter:none}
+.cc .chead b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc .chead .nx{margin-left:auto;color:var(--mute);font-size:13.5px;white-space:nowrap}
+.cc .chead .nx.late{color:var(--warn);font-weight:700}
+.cc .chead::after{content:"";flex:none;width:7px;height:7px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(45deg);margin:-3px 2px 0 4px;transition:transform .15s}
+.cc.open .chead::after{transform:rotate(-135deg);margin-top:4px}
+.cc.open .chead{box-shadow:inset 0 -1px 0 var(--line)}
+.cc:not(.open) .cbody{display:none}
+.cc .cbody{padding:6px 18px 18px}
+.cc .bname{display:none}
+.cc .cbody>.row:first-child{justify-content:flex-end}
 .pg-cl .gh{margin-top:26px}
 
 /* Weeks */
@@ -226,13 +241,15 @@ function ft(t){var p=String(t||'11:30').split(':'),h=+p[0]||0,m=p[1]||'00',z=h>=
 var lab=function(s){return s==='Requirement discussion'?'Discussion':s};
 var fkey=function(x){return(x.next||'9999-12-31')+(x.time||S.fuTime||'11:30')};
 var byKey=function(a,b){var ka=fkey(a),kb=fkey(b);return ka<kb?-1:ka>kb?1:String(a.name).localeCompare(String(b.name))};
+var ox={};
 function clientCard(x){var bal=PAY.indexOf(x.stage)>-1?Math.max(0,x.price-x.paid):0,fu=OFF[x.stage]||PAY.indexOf(x.stage)>-1,d=' data-id="'+x.id+'"';
-return '<div class="card"><div class="row"><b>'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
+var isO=!!ox[x.id],due=x.next&&x.next<=todayISO();
+return '<div class="card cc'+(isO?' open':'')+'"><button type="button" class="chead" data-a="ctoggle"'+d+' aria-expanded="'+isO+'"><b>'+esc(x.name)+'</b><span class="nx'+(due?' late':'')+'">'+(x.next?'Next follow-up '+fd(x.next):'No follow-up set')+'</span></button><div class="cbody"><div class="row"><b class="bname">'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
 '<div class="two"><div><label>Stage</label><select data-c="stage"'+d+'>'+STAGES.map(function(s){return '<option'+(s===x.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input type="date" data-c="lead"'+d+' value="'+esc(x.lead)+'"></div><div><label>Price (\u20b9)</label><input type="number" inputmode="decimal" data-c="price"'+d+' value="'+x.price+'"></div><div><label>Paid so far (\u20b9)</label><input type="number" inputmode="decimal" data-c="paid"'+d+' value="'+x.paid+'"></div></div>'+
 '<label>Phone</label><input type="tel" inputmode="tel" data-c="phone"'+d+' value="'+esc(x.phone)+'">'+
 (fu?'<div class="two"><div><label>Next follow-up</label><input type="date" data-c="next"'+d+' value="'+esc(x.next)+'"></div><div><label>Follow-up time</label><input type="time" data-c="time"'+d+' value="'+esc(x.time||S.fuTime||'11:30')+'"></div></div>':'')+
 '<label>Notes</label><textarea rows="2" data-c="notes"'+d+' placeholder="Notes about this client">'+esc(x.notes)+'</textarea>'+
-'<div class="row" style="margin-top:10px"><label style="margin:0"><input type="checkbox" style="width:auto;min-height:0" data-c="care"'+d+(x.care?' checked':'')+'> On a care plan</label><span class="mute">'+(bal?'Balance '+inr(bal):'')+'</span></div></div>'}
+'<div class="row" style="margin-top:10px"><label style="margin:0"><input type="checkbox" style="width:auto;min-height:0" data-c="care"'+d+(x.care?' checked':'')+'> On a care plan</label><span class="mute">'+(bal?'Balance '+inr(bal):'')+'</span></div></div></div>'}
 function filterBar(){var c={};S.clients.forEach(function(x){c[x.stage]=(c[x.stage]||0)+1});
 var cnt=function(a){return a.reduce(function(t,k){return t+(c[k]||0)},0)},nl=cnt(LEAD_ST),np=cnt(PROJ_ST),pr=cpanel==='projects',sts=pr?PROJ_ST:LEAD_ST;
 var seg='<div class="seg"><button class="'+(pr?'':'on')+'" data-a="cpanel" data-v="leads">Leads '+nl+'</button><button class="'+(pr?'on':'')+'" data-a="cpanel" data-v="projects">Projects '+np+'</button></div>';
@@ -261,6 +278,7 @@ document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
 var b=e.target.closest('[data-a]');if(!b)return;var a=b.dataset.a,id=b.dataset.id;
+if(a==='ctoggle'){ox[id]=!ox[id];var cc=b.closest('.cc');cc.classList.toggle('open',!!ox[id]);b.setAttribute('aria-expanded',!!ox[id]);return}
 if(a==='addlog'){S.log.push({id:uid(),date:v('ld')||todayISO(),spend:+v('ls')||0,leads:+v('ll')||0,demos:+v('lm')||0,revenue:0,costs:+v('lc')||0,note:v('ln')})}
 else if(a==='dellog'){S.log=S.log.filter(function(r){return r.id!==id})}
 else if(a==='addcl'){if(!v('cn').trim())return;var nc={id:uid(),name:v('cn').trim(),stage:v('cs'),price:+v('cp')||0,paid:+v('ca')||0,care:false,lead:v('cl'),phone:v('cph').trim(),notes:v('cnt').trim()};plan(nc,todayISO());S.clients.push(nc)}
