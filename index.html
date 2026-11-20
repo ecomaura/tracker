@@ -66,6 +66,60 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:
 details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 .wk{overflow-x:auto}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s}}
+
+/* ---- Tablet and desktop layout (phones and the Android app are unchanged) ---- */
+@media (min-width:600px) and (max-width:899px){
+body{max-width:720px}nav div{max-width:720px}
+.chips{flex-wrap:wrap;overflow:visible}
+}
+@media (min-width:900px){
+body{max-width:none;margin:0;padding:8px 40px 48px 260px;font-size:15.5px}
+#app{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);column-gap:20px;grid-auto-rows:min-content;align-items:start}
+.card>details>summary{display:none}
+h1{font-size:28px;margin:26px 0 2px}
+.sub{margin-bottom:6px}
+.big{font-size:52px}
+.card{padding:18px}
+.card:hover,.st:hover{border-color:color-mix(in srgb,var(--acc) 35%,var(--line))}
+button:not(:disabled){transition:filter .12s,background-color .12s}
+button:hover{filter:brightness(1.08)}button.ghost:hover,.btn:hover{background:var(--accbg);filter:none}
+button.fc:hover{background:var(--accbg);filter:none}button.fc.on:hover{background:var(--acc);filter:brightness(1.1)}
+.grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.chips{flex-wrap:wrap;overflow:visible}
+input[type=search]{max-width:380px}
+
+/* sidebar navigation */
+nav{top:0;bottom:0;left:0;right:auto;width:220px;border-top:0;border-right:1px solid var(--line);flex-direction:column;justify-content:flex-start;padding:0}
+nav div{flex-direction:column;max-width:none;width:100%;padding:12px 0}
+nav div::before{content:"Agency Tracker";display:block;font:700 19px "Bricolage Grotesque","DM Sans",system-ui,sans-serif;color:var(--ink);padding:18px 22px 20px}
+nav button{flex:none;text-align:left;padding:0 22px;min-height:46px;font-size:15px;box-shadow:none;border-radius:0}
+nav button:hover{background:var(--accbg);color:var(--acc);filter:none}
+nav button.on{background:var(--accbg);box-shadow:inset 3px 0 0 var(--acc)}
+
+/* Summary: numbers on the left, follow-ups on the right */
+.pg-home{grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:repeat(5,min-content) 1fr}
+.pg-home>*{grid-column:1}
+.pg-home>h1,.pg-home>.sub{grid-column:1/-1}
+.pg-home>.card:nth-child(4){grid-column:2;grid-row:3/7;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;margin-top:10px}
+.pg-home>details{grid-column:1/-1;max-width:760px;width:100%}
+.pg-home>details .card{max-width:760px}
+
+/* Log: form on the left, entries on the right */
+.logwrap{display:grid;grid-template-columns:380px minmax(0,1fr);column-gap:20px;align-items:start}
+.logform{position:sticky;top:16px}
+/* Clients: search box and add form stay compact */
+.pg-cl>details{max-width:640px}
+.pg-cl .cards{gap:18px}
+.pg-cl .gh{margin-top:26px}
+
+/* Weeks */
+.pg-wk{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
+.pg-wk>h1,.pg-wk>.sub,.pg-wk>.mute,.pg-wk>.empty{grid-column:1/-1}
+.pg-wk .grid{grid-template-columns:1fr 1fr}
+}
+@media (min-width:1500px){
+.pg-wk{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 </style>
 </head>
 <body>
@@ -164,9 +218,9 @@ return '<h1>Agency tracker</h1><p class="sub">Sales against ad spend <span id="s
 '<button class="pri full" data-a="syncon">Connect and sync</button><button class="ghost full" data-a="syncoff">Turn sync off</button><p id="syncmsg" class="mute"></p>'+
 '<p class="mute">In Firebase, open Realtime Database, then Rules, and use these so only people who know your key can reach your data:</p><pre>{\n  "rules": {\n    "agencyTracker": {\n      "$key": { ".read": true, ".write": true }\n    }\n  }\n}</pre></div></details>'}
 function logTab(){var rows=S.log.slice().sort(function(a,b){return a.date<b.date?1:-1});
-return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and costs. Payments go on the Clients tab.</p>'+
-'<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div>'+
-(rows.length?rows.map(function(r){return '<div class="card"><div class="row"><b>'+fd(r.date)+'</b><button class="del" data-a="dellog" data-id="'+r.id+'" aria-label="Delete entry">Delete</button></div><div class="mute">'+(r.spend?'Ad spend '+inr(r.spend)+'. ':'')+(r.leads?r.leads+' leads. ':'')+(r.demos?r.demos+' demos. ':'')+(r.costs?'Costs '+inr(r.costs)+'. ':'')+esc(r.note)+'</div></div>'}).join(''):'<div class="empty">No entries yet. Add today\u2019s spend and leads above.</div>')}
+return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and costs. Payments go on the Clients tab.</p><div class="logwrap"><div class="logform">'+
+'<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div></div>'+
+'<div class="loglist">'+(rows.length?rows.map(function(r){return '<div class="card"><div class="row"><b>'+fd(r.date)+'</b><button class="del" data-a="dellog" data-id="'+r.id+'" aria-label="Delete entry">Delete</button></div><div class="mute">'+(r.spend?'Ad spend '+inr(r.spend)+'. ':'')+(r.leads?r.leads+' leads. ':'')+(r.demos?r.demos+' demos. ':'')+(r.costs?'Costs '+inr(r.costs)+'. ':'')+esc(r.note)+'</div></div>'}).join(''):'<div class="empty">No entries yet. Add today\u2019s spend and leads above.</div>')+'</div></div>'}
 var cf='all',cq='',cpanel='leads',LEAD_ST=['Demo delivered','Requirement discussion','Demo','Lead','Lost'],PROJ_ST=['Advance paid','Delivered'];
 function ft(t){var p=String(t||'11:30').split(':'),h=+p[0]||0,m=p[1]||'00',z=h>=12?'pm':'am';h=h%12||12;return h+':'+m+' '+z}
 var lab=function(s){return s==='Requirement discussion'?'Discussion':s};
@@ -202,6 +256,7 @@ var n=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&x.lead&&x.lea
 return '<div class="card"><div class="row"><b>'+fd(w)+' to '+fd(e)+'</b><span class="chip '+(mat?'ok':'')+'">'+(mat?'Matured':'Still maturing')+'</span></div><div class="grid" style="margin-top:10px">'+st('Leads',L)+st('Paying clients',n)+st('Close rate',L?pc(n/L):'-')+st('Cost per paying client',n?inr(sp/n):'-')+'</div></div>'}).join(''):'<div class="empty">Add log entries to see weekly results.</div>')+
 (nl?'<p class="mute">'+nl+' paying client'+(nl>1?'s have':' has')+' no lead date yet, so they are not counted in any week. Add the dates on the Clients tab.</p>':'')}
 function render(){var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
+var ap=document.getElementById('app');ap.className='pg-'+tab;if(window.matchMedia&&matchMedia('(min-width:900px)').matches){[].forEach.call(ap.querySelectorAll('.card>details'),function(d){d.open=true})}
 document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary'],['log','Log'],['cl','Clients'],['wk','Weeks']].map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
