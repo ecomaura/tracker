@@ -68,6 +68,23 @@ details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s}}
 
 /* ---- Tablet and desktop layout (phones and the Android app are unchanged) ---- */
+.sortbar{align-items:center;margin-top:8px}.sortbar .mute{font-size:13px;margin-right:2px;white-space:nowrap}
+.wkchart{--ph:170px}
+.wkchart .chips,.sortbar{flex-wrap:wrap;overflow:visible}
+.wkchart .scr{overflow-x:auto;margin-top:6px;padding-top:24px}
+.wkchart .plot{display:flex;gap:10px;position:relative;min-width:100%;width:max-content}
+.wkchart .bc{flex:1 0 58px;display:flex;flex-direction:column;align-items:center;min-width:0}
+.wkchart .bw{height:var(--ph);width:100%;display:flex;align-items:flex-end;justify-content:center;gap:4px;border-bottom:1px solid var(--line)}
+.wkchart .bar{width:min(46%,28px);flex:none;border-radius:6px 6px 0 0;background:var(--acc);position:relative;min-height:0;transition:height .25s}
+.wkchart .bar.b2{background:var(--pos)}
+.wkchart .bar.im,.wkchart .sw.im{opacity:.5;background-image:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.55) 4px 8px)}
+.wkchart .bar span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;font-size:11.5px;font-weight:600;white-space:nowrap;color:var(--ink)}
+.wkchart .nob{color:var(--mute);font-size:12px;align-self:flex-end;margin-bottom:3px}
+.wkchart .bx{height:26px;line-height:26px;font-size:12px;color:var(--mute);white-space:nowrap}
+.wkchart .goal{position:absolute;left:0;right:0;bottom:calc(26px + var(--ph)*var(--g));border-top:2px dashed var(--warn);pointer-events:none;z-index:1}
+.wkchart .leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:12.5px;color:var(--mute)}
+.wkchart .leg span{display:inline-flex;align-items:center;gap:6px}
+.wkchart .sw{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--acc)}.wkchart .sw.b2{background:var(--pos)}.wkchart .sw.gl{background:none;height:0;border-top:2px dashed var(--warn);border-radius:0;width:16px}
 /* compact client headers only show on desktop */
 .chead{display:none}
 @media (min-width:600px) and (max-width:899px){
@@ -129,7 +146,8 @@ nav button.on{background:var(--accbg);box-shadow:inset 3px 0 0 var(--acc)}
 
 /* Weeks */
 .pg-wk{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
-.pg-wk>h1,.pg-wk>.sub,.pg-wk>.mute,.pg-wk>.empty{grid-column:1/-1}
+.pg-wk>h1,.pg-wk>.sub,.pg-wk>.mute,.pg-wk>.empty,.pg-wk>.wkchart{grid-column:1/-1}
+.wkchart{--ph:230px}
 .pg-wk .grid{grid-template-columns:1fr 1fr}
 }
 @media (min-width:1500px){
@@ -236,15 +254,16 @@ function logTab(){var rows=S.log.slice().sort(function(a,b){return a.date<b.date
 return '<h1>Daily log</h1><p class="sub">Add ad spend, leads, demos and costs. Payments go on the Clients tab.</p><div class="logwrap"><div class="logform">'+
 '<div class="card"><div class="two"><div><label>Date</label><input id="ld" type="date" value="'+todayISO()+'"></div><div><label>Ad spend (\u20b9)</label><input id="ls" type="number" inputmode="decimal"></div><div><label>Leads</label><input id="ll" type="number" inputmode="numeric"></div><div><label>Demos sent</label><input id="lm" type="number" inputmode="numeric"></div><div><label>Domain and other costs (\u20b9)</label><input id="lc" type="number" inputmode="decimal"></div></div><label>Note</label><input id="ln" type="text"><button class="pri full" data-a="addlog">Add entry</button></div></div>'+
 '<div class="loglist">'+(rows.length?rows.map(function(r){return '<div class="card"><div class="row"><b>'+fd(r.date)+'</b><button class="del" data-a="dellog" data-id="'+r.id+'" aria-label="Delete entry">Delete</button></div><div class="mute">'+(r.spend?'Ad spend '+inr(r.spend)+'. ':'')+(r.leads?r.leads+' leads. ':'')+(r.demos?r.demos+' demos. ':'')+(r.costs?'Costs '+inr(r.costs)+'. ':'')+esc(r.note)+'</div></div>'}).join(''):'<div class="empty">No entries yet. Add today\u2019s spend and leads above.</div>')+'</div></div>'}
-var cf='all',cq='',cpanel='leads',LEAD_ST=['Demo delivered','Requirement discussion','Demo','Lead','Lost'],PROJ_ST=['Advance paid','Delivered'];
+var psort=(function(){try{var v=localStorage.getItem('agency-tracker-psort');return v==='new'||v==='old'?v:'next'}catch(e){return 'next'}})(),cf='all',cq='',cpanel='leads',LEAD_ST=['Demo delivered','Requirement discussion','Demo','Lead','Lost'],PROJ_ST=['Advance paid','Delivered'];
 function ft(t){var p=String(t||'11:30').split(':'),h=+p[0]||0,m=p[1]||'00',z=h>=12?'pm':'am';h=h%12||12;return h+':'+m+' '+z}
 var lab=function(s){return s==='Requirement discussion'?'Discussion':s};
 var fkey=function(x){return(x.next||'9999-12-31')+(x.time||S.fuTime||'11:30')};
+var pSort=function(a,b){if(psort==='next')return byKey(a,b);var la=a.lead||'',lb=b.lead||'';if(la!==lb){if(!la)return 1;if(!lb)return -1;return psort==='new'?(la<lb?1:-1):(la<lb?-1:1)}return String(a.name).localeCompare(String(b.name))};
 var byKey=function(a,b){var ka=fkey(a),kb=fkey(b);return ka<kb?-1:ka>kb?1:String(a.name).localeCompare(String(b.name))};
 var ox={};
 function clientCard(x){var bal=PAY.indexOf(x.stage)>-1?Math.max(0,x.price-x.paid):0,fu=OFF[x.stage]||PAY.indexOf(x.stage)>-1,d=' data-id="'+x.id+'"';
 var isO=!!ox[x.id],due=x.next&&x.next<=todayISO();
-return '<div class="card cc'+(isO?' open':'')+'"><button type="button" class="chead" data-a="ctoggle"'+d+' aria-expanded="'+isO+'"><b>'+esc(x.name)+'</b><span class="nx'+(due?' late':'')+'">'+(x.next?'Next follow-up '+fd(x.next):'No follow-up set')+'</span></button><div class="cbody"><div class="row"><b class="bname">'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
+return '<div class="card cc'+(isO?' open':'')+'"><button type="button" class="chead" data-a="ctoggle"'+d+' aria-expanded="'+isO+'"><b>'+esc(x.name)+'</b><span class="nx'+(due?' late':'')+'">'+(PAY.indexOf(x.stage)>-1?(x.lead?'Lead date '+fd(x.lead):'No lead date'):x.next?'Next follow-up '+fd(x.next):'No follow-up set')+'</span></button><div class="cbody"><div class="row"><b class="bname">'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
 '<div class="two"><div><label>Stage</label><select data-c="stage"'+d+'>'+STAGES.map(function(s){return '<option'+(s===x.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input type="date" data-c="lead"'+d+' value="'+esc(x.lead)+'"></div><div><label>Price (\u20b9)</label><input type="number" inputmode="decimal" data-c="price"'+d+' value="'+x.price+'"></div><div><label>Paid so far (\u20b9)</label><input type="number" inputmode="decimal" data-c="paid"'+d+' value="'+x.paid+'"></div></div>'+
 '<label>Phone</label><input type="tel" inputmode="tel" data-c="phone"'+d+' value="'+esc(x.phone)+'">'+
 (fu?'<div class="two"><div><label>Next follow-up</label><input type="date" data-c="next"'+d+' value="'+esc(x.next)+'"></div><div><label>Follow-up time</label><input type="time" data-c="time"'+d+' value="'+esc(x.time||S.fuTime||'11:30')+'"></div></div>':'')+
@@ -254,26 +273,38 @@ function filterBar(){var c={};S.clients.forEach(function(x){c[x.stage]=(c[x.stag
 var cnt=function(a){return a.reduce(function(t,k){return t+(c[k]||0)},0)},nl=cnt(LEAD_ST),np=cnt(PROJ_ST),pr=cpanel==='projects',sts=pr?PROJ_ST:LEAD_ST;
 var seg='<div class="seg"><button class="'+(pr?'':'on')+'" data-a="cpanel" data-v="leads">Leads '+nl+'</button><button class="'+(pr?'on':'')+'" data-a="cpanel" data-v="projects">Projects '+np+'</button></div>';
 var o=[['all','All',pr?np:nl]].concat(sts.map(function(k){return[k,lab(k),c[k]||0]}));
-return seg+'<div class="chips">'+o.map(function(k){return '<button class="fc'+(cf===k[0]?' on':'')+'" data-a="cfilter" data-v="'+esc(k[0])+'">'+esc(k[1])+' '+k[2]+'</button>'}).join('')+'</div><input id="cq" type="search" placeholder="Search by name, phone or notes" value="'+esc(cq)+'" style="margin-top:8px">'}
+return seg+'<div class="chips">'+o.map(function(k){return '<button class="fc'+(cf===k[0]?' on':'')+'" data-a="cfilter" data-v="'+esc(k[0])+'">'+esc(k[1])+' '+k[2]+'</button>'}).join('')+'</div>'+(pr?'<div class="chips sortbar"><span class="mute">Sort by</span>'+[['next','Follow-up date'],['new','Lead date, newest'],['old','Lead date, oldest']].map(function(k){return '<button class="fc'+(psort===k[0]?' on':'')+'" data-a="psort" data-v="'+k[0]+'">'+k[1]+'</button>'}).join('')+'</div>':'')+'<input id="cq" type="search" placeholder="Search by name, phone or notes" value="'+esc(cq)+'" style="margin-top:8px">'}
 function clientList(){var q=cq.trim().toLowerCase(),qd=q.replace(/\D/g,''),pr=cpanel==='projects',sts=pr?PROJ_ST:LEAD_ST;
 var L=S.clients.filter(function(x){if(sts.indexOf(x.stage)<0)return false;if(cf!=='all'&&x.stage!==cf)return false;
 return !q||x.name.toLowerCase().indexOf(q)>-1||(x.notes||'').toLowerCase().indexOf(q)>-1||(qd&&(x.phone||'').replace(/\D/g,'').indexOf(qd)>-1)});
 if(!L.length)return '<div class="empty">'+(pr?'No projects yet. A lead moves here once an advance is paid.':'No leads match this view.')+'</div>';
-if(pr)return '<div class="cards">'+L.sort(byKey).map(clientCard).join('')+'</div>';
+if(pr)return '<div class="cards">'+L.sort(pSort).map(clientCard).join('')+'</div>';
 return sts.map(function(k){var g=L.filter(function(x){return x.stage===k}).sort(byKey);return g.length?'<h2 class="gh">'+esc(lab(k))+' <span class="mute">'+g.length+'</span></h2><div class="cards">'+g.map(clientCard).join('')+'</div>':''}).join('')}
 function clientsTab(){
 return '<h1>Clients</h1><p class="sub">Leads are in the first tab, paying projects in the second. Each list runs from the earliest follow-up date.</p>'+
 '<details><summary>Add a client</summary><div class="card"><label>Client or business</label><input id="cn" type="text"><label>Phone (optional)</label><input id="cph" type="tel" inputmode="tel"><div class="two"><div><label>Stage</label><select id="cs">'+STAGES.map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input id="cl" type="date" value="'+todayISO()+'"></div><div><label>Price (\u20b9)</label><input id="cp" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Paid so far (\u20b9)</label><input id="ca" type="number" inputmode="decimal"></div></div><label>Notes (optional)</label><textarea id="cnt" rows="2"></textarea><button class="pri full" data-a="addcl">Add client</button></div></details>'+
 filterBar()+'<div id="cllist">'+clientList()+'</div>'}
-function weeks(){var d={};S.log.forEach(function(r){d[monday(r.date)]=1});S.clients.forEach(function(x){if(x.lead)d[monday(x.lead)]=1});
-var ws=Object.keys(d).sort(),t=todayISO(),nl=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&!x.lead}).length;
+var wmet='lp';
+function weekRows(){var d={};S.log.forEach(function(r){d[monday(r.date)]=1});S.clients.forEach(function(x){if(x.lead)d[monday(x.lead)]=1});var t=todayISO();
+return Object.keys(d).sort().map(function(w){var e=addDays(w,6),L=0,sp=0;S.log.forEach(function(r){if(r.date>=w&&r.date<=e){L+=+r.leads||0;sp+=+r.spend||0}});
+var n=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&x.lead&&x.lead>=w&&x.lead<=e}).length;return{w:w,e:e,L:L,sp:sp,n:n,mat:t>=addDays(e,14)}})}
+function wkChart(R){R=R.slice(-12);var m=wmet,goal=1/Math.max(1,S.target),cr=function(r){return r.L?r.n/r.L:0},cpc=function(r){return r.n?r.sp/r.n:0};
+var mx=m==='lp'?Math.max.apply(null,R.map(function(r){return Math.max(r.L,r.n)}).concat([1])):m==='cr'?Math.max.apply(null,R.map(cr).concat([goal]))*1.12:Math.max.apply(null,R.map(cpc).concat([1]))*1.05;
+var bar=function(v,txt,cls,r){return '<div class="bar '+cls+(r.mat?'':' im')+'" style="height:calc(var(--ph)*'+(v/mx).toFixed(4)+')"><span>'+txt+'</span></div>'};
+var none='<span class="nob">-</span>';
+var cols=R.map(function(r){var bs=m==='lp'?bar(r.L,r.L,'',r)+bar(r.n,r.n,'b2',r):m==='cr'?(r.L?bar(cr(r),pc(cr(r)),'',r):none):(r.n?bar(cpc(r),inr(cpc(r)),'',r):none);
+return '<div class="bc"><div class="bw">'+bs+'</div><div class="bx">'+fd(r.w)+'</div></div>'}).join('');
+var chips=[['lp','Leads and paying'],['cr','Close rate'],['cpc','Cost per paying client']].map(function(k){return '<button class="fc'+(wmet===k[0]?' on':'')+'" data-a="wmet" data-v="'+k[0]+'">'+k[1]+'</button>'}).join('');
+var leg=(m==='lp'?'<span><i class="sw"></i>Leads</span><span><i class="sw b2"></i>Paying clients</span>':m==='cr'?'<span><i class="sw"></i>Close rate</span><span><i class="sw gl"></i>Goal 1 in '+Math.max(1,S.target)+'</span>':'<span><i class="sw"></i>Ad spend per paying client</span>')+'<span><i class="sw im"></i>Still maturing</span>';
+return '<div class="card wkchart"><div class="row"><b>Weekly trend</b><span class="mute">Last '+R.length+' week'+(R.length>1?'s':'')+'</span></div><div class="chips" style="margin-top:8px">'+chips+'</div>'+
+'<div class="scr"><div class="plot">'+(m==='cr'?'<div class="goal" style="--g:'+(goal/mx).toFixed(4)+'"></div>':'')+cols+'</div></div><div class="leg">'+leg+'</div></div>'}
+function weeks(){var R=weekRows(),nl=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&!x.lead}).length;
 return '<h1>Weekly batches</h1><p class="sub">Close rate by the week leads arrived. Weeks starting Monday.</p>'+
-(ws.length?ws.map(function(w){var e=addDays(w,6),L=0,sp=0;S.log.forEach(function(r){if(r.date>=w&&r.date<=e){L+=+r.leads||0;sp+=+r.spend||0}});
-var n=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1&&x.lead&&x.lead>=w&&x.lead<=e}).length,mat=t>=addDays(e,14);
-return '<div class="card"><div class="row"><b>'+fd(w)+' to '+fd(e)+'</b><span class="chip '+(mat?'ok':'')+'">'+(mat?'Matured':'Still maturing')+'</span></div><div class="grid" style="margin-top:10px">'+st('Leads',L)+st('Paying clients',n)+st('Close rate',L?pc(n/L):'-')+st('Cost per paying client',n?inr(sp/n):'-')+'</div></div>'}).join(''):'<div class="empty">Add log entries to see weekly results.</div>')+
+(R.length?wkChart(R)+R.map(function(r){
+return '<div class="card"><div class="row"><b>'+fd(r.w)+' to '+fd(r.e)+'</b><span class="chip '+(r.mat?'ok':'')+'">'+(r.mat?'Matured':'Still maturing')+'</span></div><div class="grid" style="margin-top:10px">'+st('Leads',r.L)+st('Paying clients',r.n)+st('Close rate',r.L?pc(r.n/r.L):'-')+st('Cost per paying client',r.n?inr(r.sp/r.n):'-')+'</div></div>'}).join(''):'<div class="empty">Add log entries to see weekly results.</div>')+
 (nl?'<p class="mute">'+nl+' paying client'+(nl>1?'s have':' has')+' no lead date yet, so they are not counted in any week. Add the dates on the Clients tab.</p>':'')}
 function render(){var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
-var ap=document.getElementById('app');ap.className='pg-'+tab;if(window.matchMedia&&matchMedia('(min-width:900px)').matches){[].forEach.call(ap.querySelectorAll('.card>details'),function(d){d.open=true})}
+var ap=document.getElementById('app');ap.className='pg-'+tab;var sc=ap.querySelector('.scr');if(sc)sc.scrollLeft=sc.scrollWidth;if(window.matchMedia&&matchMedia('(min-width:900px)').matches){[].forEach.call(ap.querySelectorAll('.card>details'),function(d){d.open=true})}
 document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary'],['log','Log'],['cl','Clients'],['wk','Weeks']].map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
@@ -289,6 +320,8 @@ else if(a==='import'){try{var o=JSON.parse(v('bk'));if(o&&o.log&&o.clients){S=o}
 else if(a==='remon'){enableReminders().then(function(m){var e=document.getElementById('remmsg');if(e)e.textContent=m;if(m==='Reminders are on.')setTimeout(render,1200)});return}
 else if(a==='remtest'){testReminder().then(function(m){var e=document.getElementById('remmsg');if(e)e.textContent=m});return}
 else if(a==='cfilter'){cf=b.dataset.v;render();return}
+else if(a==='psort'){psort=b.dataset.v;try{localStorage.setItem('agency-tracker-psort',psort)}catch(x){}render();return}
+else if(a==='wmet'){wmet=b.dataset.v;render();return}
 else if(a==='cpanel'){cpanel=b.dataset.v;cf='all';render();return}
 else if(a==='fdone'){var q=fc(id),o=OFF[q.stage];q.touches=(q.touches||0)+1;q.next=q.touches<o.length?addDays(q.base||todayISO(),o[q.touches]):'';if(q.next&&q.next<=todayISO())q.next=addDays(todayISO(),1)}
 else if(a==='fsnooze'){fc(id).next=addDays(todayISO(),1)}
