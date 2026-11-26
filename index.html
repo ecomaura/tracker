@@ -263,8 +263,9 @@ var byKey=function(a,b){var ka=fkey(a),kb=fkey(b);return ka<kb?-1:ka>kb?1:String
 var ox={};
 function clientCard(x){var bal=PAY.indexOf(x.stage)>-1?Math.max(0,x.price-x.paid):0,fu=OFF[x.stage]||PAY.indexOf(x.stage)>-1,d=' data-id="'+x.id+'"';
 var isO=!!ox[x.id],due=x.next&&x.next<=todayISO();
-return '<div class="card cc'+(isO?' open':'')+'"><button type="button" class="chead" data-a="ctoggle"'+d+' aria-expanded="'+isO+'"><b>'+esc(x.name)+'</b><span class="nx'+(due?' late':'')+'">'+(PAY.indexOf(x.stage)>-1?(x.lead?'Lead date '+fd(x.lead):'No lead date'):x.next?'Next follow-up '+fd(x.next):'No follow-up set')+'</span></button><div class="cbody"><div class="row"><b class="bname">'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
+return '<div class="card cc'+(isO?' open':'')+'"><button type="button" class="chead" data-a="ctoggle"'+d+' aria-expanded="'+isO+'"><b>'+esc(x.name)+'</b><span class="nx'+(due?' late':'')+'">'+(PAY.indexOf(x.stage)>-1?(x.stage==='Advance paid'&&x.adv?(x.lead?'Lead '+fd(x.lead)+' \u00b7 ':'')+'Advance paid '+fd(x.adv):x.lead?'Lead date '+fd(x.lead):'No lead date'):x.next?'Next follow-up '+fd(x.next):'No follow-up set')+'</span></button><div class="cbody"><div class="row"><b class="bname">'+esc(x.name)+'</b><button class="del" data-a="delcl"'+d+' aria-label="Delete client">Delete</button></div>'+
 '<div class="two"><div><label>Stage</label><select data-c="stage"'+d+'>'+STAGES.map(function(s){return '<option'+(s===x.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input type="date" data-c="lead"'+d+' value="'+esc(x.lead)+'"></div><div><label>Price (\u20b9)</label><input type="number" inputmode="decimal" data-c="price"'+d+' value="'+x.price+'"></div><div><label>Paid so far (\u20b9)</label><input type="number" inputmode="decimal" data-c="paid"'+d+' value="'+x.paid+'"></div></div>'+
+(x.stage==='Advance paid'?'<div class="two"><div><label>Advance payment date</label><input type="date" data-c="adv"'+d+' value="'+esc(x.adv)+'"></div></div>':'')+
 '<label>Phone</label><input type="tel" inputmode="tel" data-c="phone"'+d+' value="'+esc(x.phone)+'">'+
 (fu?'<div class="two"><div><label>Next follow-up</label><input type="date" data-c="next"'+d+' value="'+esc(x.next)+'"></div><div><label>Follow-up time</label><input type="time" data-c="time"'+d+' value="'+esc(x.time||S.fuTime||'11:30')+'"></div></div>':'')+
 '<label>Notes</label><textarea rows="2" data-c="notes"'+d+' placeholder="Notes about this client">'+esc(x.notes)+'</textarea>'+
@@ -282,7 +283,7 @@ if(pr)return '<div class="cards">'+L.sort(pSort).map(clientCard).join('')+'</div
 return sts.map(function(k){var g=L.filter(function(x){return x.stage===k}).sort(byKey);return g.length?'<h2 class="gh">'+esc(lab(k))+' <span class="mute">'+g.length+'</span></h2><div class="cards">'+g.map(clientCard).join('')+'</div>':''}).join('')}
 function clientsTab(){
 return '<h1>Clients</h1><p class="sub">Leads are in the first tab, paying projects in the second. Each list runs from the earliest follow-up date.</p>'+
-'<details><summary>Add a client</summary><div class="card"><label>Client or business</label><input id="cn" type="text"><label>Phone (optional)</label><input id="cph" type="tel" inputmode="tel"><div class="two"><div><label>Stage</label><select id="cs">'+STAGES.map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input id="cl" type="date" value="'+todayISO()+'"></div><div><label>Price (\u20b9)</label><input id="cp" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Paid so far (\u20b9)</label><input id="ca" type="number" inputmode="decimal"></div></div><label>Notes (optional)</label><textarea id="cnt" rows="2"></textarea><button class="pri full" data-a="addcl">Add client</button></div></details>'+
+'<details><summary>Add a client</summary><div class="card"><label>Client or business</label><input id="cn" type="text"><label>Phone (optional)</label><input id="cph" type="tel" inputmode="tel"><div class="two"><div><label>Stage</label><select id="cs">'+STAGES.map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>Lead date</label><input id="cl" type="date" value="'+todayISO()+'"></div><div><label>Price (\u20b9)</label><input id="cp" type="number" inputmode="decimal" value="'+S.price+'"></div><div><label>Paid so far (\u20b9)</label><input id="ca" type="number" inputmode="decimal"></div></div><div id="cadvw" style="display:none"><label>Advance payment date</label><input id="cadv" type="date" value="'+todayISO()+'"></div><label>Notes (optional)</label><textarea id="cnt" rows="2"></textarea><button class="pri full" data-a="addcl">Add client</button></div></details>'+
 filterBar()+'<div id="cllist">'+clientList()+'</div>'}
 var wmet='lp';
 function weekRows(){var d={};S.log.forEach(function(r){d[monday(r.date)]=1});S.clients.forEach(function(x){if(x.lead)d[monday(x.lead)]=1});var t=todayISO();
@@ -312,7 +313,7 @@ var b=e.target.closest('[data-a]');if(!b)return;var a=b.dataset.a,id=b.dataset.i
 if(a==='ctoggle'){ox[id]=!ox[id];var cc=b.closest('.cc');cc.classList.toggle('open',!!ox[id]);b.setAttribute('aria-expanded',!!ox[id]);return}
 if(a==='addlog'){S.log.push({id:uid(),date:v('ld')||todayISO(),spend:+v('ls')||0,leads:+v('ll')||0,demos:+v('lm')||0,revenue:0,costs:+v('lc')||0,note:v('ln')})}
 else if(a==='dellog'){S.log=S.log.filter(function(r){return r.id!==id})}
-else if(a==='addcl'){if(!v('cn').trim())return;var nc={id:uid(),name:v('cn').trim(),stage:v('cs'),price:+v('cp')||0,paid:+v('ca')||0,care:false,lead:v('cl'),phone:v('cph').trim(),notes:v('cnt').trim()};plan(nc,todayISO());S.clients.push(nc)}
+else if(a==='addcl'){if(!v('cn').trim())return;var nc={id:uid(),name:v('cn').trim(),stage:v('cs'),price:+v('cp')||0,paid:+v('ca')||0,care:false,lead:v('cl'),phone:v('cph').trim(),notes:v('cnt').trim()};plan(nc,todayISO());if(nc.stage==='Advance paid')nc.adv=v('cadv')||todayISO();S.clients.push(nc)}
 else if(a==='delcl'){S.clients=S.clients.filter(function(x){return x.id!==id})}
 else if(a==='settings'){S.price=+v('price')||S.price;S.target=Math.max(1,+v('tgt')||S.target);S.fuTime=v('fut')||S.fuTime||'11:30'}
 else if(a==='export'){save();render();document.querySelector('details').open=true;document.getElementById('bk').value=JSON.stringify(S);return}
@@ -335,8 +336,8 @@ fbc={config:fcfg,key:ky};try{localStorage.setItem(FB,JSON.stringify(fbc))}catch(
 else if(a==='syncoff'){if(ref)ref.off();ref=null;fbc=null;ready=false;try{localStorage.removeItem(FB)}catch(x){}setSync('off');render();return}
 else if(a==='reset'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Tap again to clear everything';return}S={price:2999,target:15,log:[],clients:[]}}
 save();render()});
-document.addEventListener('change',function(e){var c=e.target.dataset&&e.target.dataset.c;if(!c)return;var x=S.clients.filter(function(k){return k.id===e.target.dataset.id})[0];if(!x)return;
-x[c]=c==='care'?e.target.checked:(c==='price'||c==='paid')?(+e.target.value||0):e.target.value;if(c==='stage')plan(x,todayISO());save();render()});
+document.addEventListener('change',function(e){if(e.target.id==='cs'){var aw=document.getElementById('cadvw');if(aw)aw.style.display=e.target.value==='Advance paid'?'':'none';return}var c=e.target.dataset&&e.target.dataset.c;if(!c)return;var x=S.clients.filter(function(k){return k.id===e.target.dataset.id})[0];if(!x)return;
+x[c]=c==='care'?e.target.checked:(c==='price'||c==='paid')?(+e.target.value||0):e.target.value;if(c==='stage'){plan(x,todayISO());if(x.stage==='Advance paid'&&!x.adv)x.adv=todayISO()}save();render()});
 document.addEventListener('input',function(e){if(e.target.id==='cq'){cq=e.target.value;var l=document.getElementById('cllist');if(l)l.innerHTML=clientList()}});
 mig();render();connect();initNative();
 </script>
