@@ -85,6 +85,8 @@ details{margin:14px 0}summary{cursor:pointer;font-weight:500;padding:8px 0}
 .wkchart .leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:12.5px;color:var(--mute)}
 .wkchart .leg span{display:inline-flex;align-items:center;gap:6px}
 .wkchart .sw{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--acc)}.wkchart .sw.b2{background:var(--pos)}.wkchart .sw.gl{background:none;height:0;border-top:2px dashed var(--warn);border-radius:0;width:16px}
+.pdamt{font-weight:700;font-size:18px;color:var(--warn);white-space:nowrap}
+.pbar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0 4px}.pbar i{display:block;height:100%;background:var(--pos);border-radius:99px}
 /* compact client headers only show on desktop */
 .chead{display:none}
 @media (min-width:600px) and (max-width:899px){
@@ -93,7 +95,8 @@ body{max-width:720px}nav div{max-width:720px}
 }
 @media (min-width:900px){
 body{max-width:none;margin:0;padding:8px 40px 48px 260px;font-size:15.5px}
-#app{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);column-gap:20px;grid-auto-rows:min-content;align-items:start}
+:where(#app){grid-template-columns:minmax(0,1fr)}
+#app{max-width:1180px;margin:0 auto;display:grid;column-gap:20px;grid-auto-rows:min-content;align-items:start}
 .card>details>summary{display:none}
 h1{font-size:28px;margin:26px 0 2px}
 .sub{margin-bottom:6px}
@@ -143,6 +146,11 @@ nav button.on{background:var(--accbg);box-shadow:inset 3px 0 0 var(--acc)}
 .cc .bname{display:none}
 .cc .cbody>.row:first-child{justify-content:flex-end}
 .pg-cl .gh{margin-top:26px}
+
+/* Pending payments */
+.pg-pd{grid-template-columns:repeat(auto-fill,minmax(380px,1fr));column-gap:18px}
+.pg-pd>*:not(.pdrow){grid-column:1/-1}
+.pg-pd .pdhero .grid{grid-template-columns:repeat(4,1fr)}
 
 /* Weeks */
 .pg-wk{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
@@ -304,9 +312,30 @@ return '<h1>Weekly batches</h1><p class="sub">Close rate by the week leads arriv
 (R.length?wkChart(R)+R.map(function(r){
 return '<div class="card"><div class="row"><b>'+fd(r.w)+' to '+fd(r.e)+'</b><span class="chip '+(r.mat?'ok':'')+'">'+(r.mat?'Matured':'Still maturing')+'</span></div><div class="grid" style="margin-top:10px">'+st('Leads',r.L)+st('Paying clients',r.n)+st('Close rate',r.L?pc(r.n/r.L):'-')+st('Cost per paying client',r.n?inr(r.sp/r.n):'-')+'</div></div>'}).join(''):'<div class="empty">Add log entries to see weekly results.</div>')+
 (nl?'<p class="mute">'+nl+' paying client'+(nl>1?'s have':' has')+' no lead date yet, so they are not counted in any week. Add the dates on the Clients tab.</p>':'')}
-function render(){var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():weeks();
+var pdsort='bal';
+function pending(){var all=S.clients.filter(function(x){return PAY.indexOf(x.stage)>-1}),pr=function(x){return+x.price||0},pd=function(x){return+x.paid||0},tdy=todayISO();
+var R=all.map(function(x){return{x:x,bal:Math.max(0,pr(x)-pd(x))}}).filter(function(r){return r.bal>0}),tot=0,advb=0,delb=0;
+R.forEach(function(r){tot+=r.bal;if(r.x.stage==='Delivered')delb+=r.bal;else advb+=r.bal});
+var billed=all.reduce(function(t,x){return t+pr(x)},0),got=all.reduce(function(t,x){return t+Math.min(pd(x),pr(x))},0),pct=billed?Math.round(got/billed*100):0;
+R.sort(function(a,b){if(pdsort==='name')return String(a.x.name).localeCompare(String(b.x.name));if(pdsort==='old'){var da=a.x.adv||'',db=b.x.adv||'';if(da!==db){if(!da)return 1;if(!db)return -1;return da<db?-1:1}}return b.bal-a.bal||String(a.x.name).localeCompare(String(b.x.name))});
+var head='<h1>Pending payments</h1><p class="sub">Balance still to collect from paying clients.</p>';
+if(!all.length)return head+'<div class="empty">No paying clients yet. Clients show up here once an advance is paid.</div>';
+var hero='<div class="card hero pdhero"><span class="mute">Total pending</span><div class="big">'+inr(tot)+'</div><span class="mute">'+(R.length?'from '+R.length+' client'+(R.length>1?'s':''):'Every paying client has paid in full')+'</span><div class="pbar" role="img" aria-label="'+pct+'% of billed amount collected"><i style="width:'+pct+'%"></i></div><span class="mute">'+inr(got)+' collected of '+inr(billed)+' billed ('+pct+'%)</span>'+
+'<div class="grid" style="margin-top:12px">'+st('Advance paid, balance',inr(advb))+st('Delivered, balance',inr(delb))+st('Clients owing',R.length)+st('Collected so far',inr(got))+'</div></div>';
+if(!R.length)return head+hero+'<div class="empty">Nothing pending right now.</div>';
+var sorts='<div class="chips sortbar"><span class="mute">Sort by</span>'+[['bal','Highest balance'],['old','Oldest advance'],['name','Name']].map(function(k){return '<button class="fc'+(pdsort===k[0]?' on':'')+'" data-a="pdsort" data-v="'+k[0]+'">'+k[1]+'</button>'}).join('')+'</div>';
+var rows=R.map(function(r){var x=r.x,paid=Math.min(pd(x),pr(x)),pp=pr(x)?Math.round(paid/pr(x)*100):0,tel=(x.phone||'').replace(/\D/g,''),wa=tel.length===10?'91'+tel:tel,
+ago=x.adv?Math.round((new Date(tdy)-new Date(x.adv))/864e5):null,
+msg='Hi '+x.name+', a quick reminder that the balance of '+inr(r.bal)+' for your website is pending. Could you please complete the payment? Thank you.';
+return '<div class="card pdrow"><div class="row"><b>'+esc(x.name)+'</b><span class="pdamt">'+inr(r.bal)+'</span></div>'+
+'<div class="mute">'+esc(x.stage)+(x.adv?' \u00b7 advance on '+fd(x.adv)+(ago>=0?' ('+(ago===0?'today':ago+(ago===1?' day':' days')+' ago')+')':''):'')+'</div>'+
+'<div class="pbar"><i style="width:'+pp+'%"></i></div><div class="mute">Paid '+inr(paid)+' of '+inr(pr(x))+'</div>'+
+'<div class="three" style="grid-template-columns:1fr 1fr">'+(tel?'<a class="btn ghost sm" href="tel:+'+wa+'">Call</a><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/'+wa+'?text='+encodeURIComponent(msg)+'">WhatsApp reminder</a>':'<span class="mute" style="grid-column:1/3;align-self:center">No phone number yet</span>')+'</div></div>'}).join('');
+var nf=all.length-R.length;
+return head+hero+sorts+rows+(nf?'<p class="mute">'+nf+' client'+(nf>1?'s have':' has')+' paid in full.</p>':'')}
+function render(){var nd=dueList().length;document.title=(nd?'('+nd+') ':'')+'Agency Tracker';document.getElementById('app').innerHTML=tab==='home'?home():tab==='log'?logTab():tab==='cl'?clientsTab():tab==='pd'?pending():weeks();
 var ap=document.getElementById('app');ap.className='pg-'+tab;var sc=ap.querySelector('.scr');if(sc)sc.scrollLeft=sc.scrollWidth;if(window.matchMedia&&matchMedia('(min-width:900px)').matches){[].forEach.call(ap.querySelectorAll('.card>details'),function(d){d.open=true})}
-document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary'],['log','Log'],['cl','Clients'],['wk','Weeks']].map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
+document.getElementById('nav').innerHTML=[['home',nd?'Summary ('+nd+')':'Summary'],['log','Log'],['cl','Clients'],['pd','Pending'],['wk','Weeks']].map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
 var v=function(i){var e=document.getElementById(i);return e?e.value:''};
 document.addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
 var b=e.target.closest('[data-a]');if(!b)return;var a=b.dataset.a,id=b.dataset.id;
@@ -322,6 +351,7 @@ else if(a==='remon'){enableReminders().then(function(m){var e=document.getElemen
 else if(a==='remtest'){testReminder().then(function(m){var e=document.getElementById('remmsg');if(e)e.textContent=m});return}
 else if(a==='cfilter'){cf=b.dataset.v;render();return}
 else if(a==='psort'){psort=b.dataset.v;try{localStorage.setItem('agency-tracker-psort',psort)}catch(x){}render();return}
+else if(a==='pdsort'){pdsort=b.dataset.v;render();return}
 else if(a==='wmet'){wmet=b.dataset.v;render();return}
 else if(a==='cpanel'){cpanel=b.dataset.v;cf='all';render();return}
 else if(a==='fdone'){var q=fc(id),o=OFF[q.stage];q.touches=(q.touches||0)+1;q.next=q.touches<o.length?addDays(q.base||todayISO(),o[q.touches]):'';if(q.next&&q.next<=todayISO())q.next=addDays(todayISO(),1)}
